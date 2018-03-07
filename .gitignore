@@ -1,3 +1,5 @@
 data/*
 sorting_example/*
 weights/*
+*.swp
+__pycache__/*
