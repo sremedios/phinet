@@ -71,7 +71,7 @@ callbacks_list.append(dlr)
 
 # Early Stopping, used to quantify convergence
 # convergence is defined as no improvement by 1e-4 for 10 consecutive epochs
-es = EarlyStopping(monitor='val_loss', min_delta=0, patience=100)
+es = EarlyStopping(monitor='val_loss', min_delta=0, patience=10)
 callbacks_list.append(es)
 
 ############### TRAINING ###############
