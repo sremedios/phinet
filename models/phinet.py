@@ -6,7 +6,7 @@ from keras.layers.merge import Concatenate, add
 from keras.layers.advanced_activations import LeakyReLU
 from keras.optimizers import Adam
 
-def phinet(input_shape, n_inputs=1, learning_rate=1e-3):
+def phinet(input_shape, n_classes, learning_rate=1e-3):
 
     inputs = Input(shape=input_shape)
     reshape = Reshape(input_shape+(1,), input_shape=input_shape)(inputs)
@@ -47,7 +47,7 @@ def phinet(input_shape, n_inputs=1, learning_rate=1e-3):
     x = Flatten()(x)
     x = Dense(128, activation='relu')(x)
 
-    pred = Dense(n_inputs, activation='sigmoid')(x)
+    pred = Dense(n_classes, activation='softmax')(x)
     
     model = Model(inputs=inputs, outputs=pred)
 

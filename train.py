@@ -51,7 +51,7 @@ if LOAD_WEIGHTS:
     best_weights = os.path.join(WEIGHT_DIR, weight_files[-1])
     model = load_model(best_weights)
 else:
-    model = phinet(input_shape=PATCH_SIZE, n_inputs=num_classes, learning_rate=LR)
+    model = phinet(input_shape=PATCH_SIZE, n_classes=num_classes, learning_rate=LR)
 
 ############### CALLBACKS ###############
 
