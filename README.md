@@ -13,7 +13,7 @@ classify, for example for use in a pipeline or for images fresh from the
 scanner.
 
 
-/phinet/
+./phinet/
 +-- data/
 |   +-- train/
 |   |   +-- /class\_1
