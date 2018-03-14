@@ -6,7 +6,7 @@ from keras.layers.merge import Concatenate, add
 from keras.layers.advanced_activations import LeakyReLU
 from keras.optimizers import Adam
 
-def phinet(input_shape, n_inputs=1, learning_rate=0.001, load_weights=False, weights=""):
+def phinet(input_shape, n_inputs=1, learning_rate=1e-3):
 
     inputs = Input(shape=input_shape)
     reshape = Reshape(input_shape+(1,), input_shape=input_shape)(inputs)
@@ -51,9 +51,6 @@ def phinet(input_shape, n_inputs=1, learning_rate=0.001, load_weights=False, wei
     
     model = Model(inputs=inputs, outputs=pred)
 
-    if load_weights:
-        model.load_weights(weights)
-
     model.compile(optimizer=Adam(lr=learning_rate), \
-                loss='binary_crossentropy',metrics=['accuracy'])
+                loss='categorical_crossentropy',metrics=['accuracy'])
     return model

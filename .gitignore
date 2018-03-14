@@ -3,3 +3,4 @@ sorting_example/*
 weights/*
 *.swp
 __pycache__/*
+validation_results/*
