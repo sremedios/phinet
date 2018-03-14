@@ -17,42 +17,42 @@ scanner.
 +-- data/
 |   +-- train/
 |   |   +-- /class_1
-|   |   |   +-- file_1_1.nii.gz
-|   |   |   +-- file_1_2.nii.gz
-|   |   |   +-- file_1_3.nii.gz
+|   |   |   +-- t_file_1_1.nii.gz
+|   |   |   +-- t_file_1_2.nii.gz
+|   |   |   +-- t_file_1_3.nii.gz
 |   |   +-- /class_2
-|   |   |   +-- file_2_1.nii.gz
-|   |   |   +-- file_2_2.nii.gz
-|   |   |   +-- file_2_3.nii.gz
+|   |   |   +-- t_file_2_1.nii.gz
+|   |   |   +-- t_file_2_2.nii.gz
+|   |   |   +-- t_file_2_3.nii.gz
 |   |   +-- [...]
 |   |   +-- /class_n
-|   |   |   +-- file_n_1.nii.gz
-|   |   |   +-- file_n_2.nii.gz
-|   |   |   +-- file_n_3.nii.gz
+|   |   |   +-- t_file_n_1.nii.gz
+|   |   |   +-- t_file_n_2.nii.gz
+|   |   |   +-- t_file_n_3.nii.gz
 |   +-- validation/
 |   |   +-- /class_1
-|   |   |   +-- file_1_1.nii.gz
-|   |   |   +-- file_1_2.nii.gz
-|   |   |   +-- file_1_3.nii.gz
+|   |   |   +-- v_file_1_1.nii.gz
+|   |   |   +-- v_file_1_2.nii.gz
+|   |   |   +-- v_file_1_3.nii.gz
 |   |   +-- /class_2
-|   |   |   +-- file_2_1.nii.gz
-|   |   |   +-- file_2_2.nii.gz
-|   |   |   +-- file_2_3.nii.gz
+|   |   |   +-- v_file_2_1.nii.gz
+|   |   |   +-- v_file_2_2.nii.gz
+|   |   |   +-- v_file_2_3.nii.gz
 |   |   +-- [...]
 |   |   +-- /class_n
-|   |   |   +-- file_n_1.nii.gz
-|   |   |   +-- file_n_2.nii.gz
-|   |   |   +-- file_n_3.nii.gz
+|   |   |   +-- v_file_n_1.nii.gz
+|   |   |   +-- v_file_n_2.nii.gz
+|   |   |   +-- v_file_n_3.nii.gz
 |   +-- test/
-|   |   +-- file_1_1.nii.gz
-|   |   +-- file_1_2.nii.gz
-|   |   +-- file_1_3.nii.gz
-|   |   +-- file_2_1.nii.gz
-|   |   +-- file_2_2.nii.gz
-|   |   +-- file_2_3.nii.gz
-|   |   +-- file_n_1.nii.gz
-|   |   +-- file_n_2.nii.gz
-|   |   +-- file_n_3.nii.gz
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- file_3.nii.gz
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- file_3.nii.gz
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- file_3.nii.gz
 ```
 ### Image Preprocessing
 All images will be run under fsl robustfov during the loading of images, and
