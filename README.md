@@ -12,48 +12,48 @@ The test directory is for images we don't know the labels for and want to
 classify, for example for use in a pipeline or for images fresh from the
 scanner.
 
-
+```
 ./phinet/
 +-- data/
 |   +-- train/
-|   |   +-- /class\_1
-|   |   |   +-- file\_1\_1.nii.gz
-|   |   |   +-- file\_1\_2.nii.gz
-|   |   |   +-- file\_1\_3.nii.gz
-|   |   +-- /class\_2
-|   |   |   +-- file\_2\_1.nii.gz
-|   |   |   +-- file\_2\_2.nii.gz
-|   |   |   +-- file\_2\_3.nii.gz
+|   |   +-- /class_1
+|   |   |   +-- file_1_1.nii.gz
+|   |   |   +-- file_1_2.nii.gz
+|   |   |   +-- file_1_3.nii.gz
+|   |   +-- /class_2
+|   |   |   +-- file_2_1.nii.gz
+|   |   |   +-- file_2_2.nii.gz
+|   |   |   +-- file_2_3.nii.gz
 |   |   +-- [...]
-|   |   +-- /class\_n
-|   |   |   +-- file\_n\_1.nii.gz
-|   |   |   +-- file\_n\_2.nii.gz
-|   |   |   +-- file\_n\_3.nii.gz
+|   |   +-- /class_n
+|   |   |   +-- file_n_1.nii.gz
+|   |   |   +-- file_n_2.nii.gz
+|   |   |   +-- file_n_3.nii.gz
 |   +-- validation/
-|   |   +-- /class\_1
-|   |   |   +-- file\_1\_1.nii.gz
-|   |   |   +-- file\_1\_2.nii.gz
-|   |   |   +-- file\_1\_3.nii.gz
-|   |   +-- /class\_2
-|   |   |   +-- file\_2\_1.nii.gz
-|   |   |   +-- file\_2\_2.nii.gz
-|   |   |   +-- file\_2\_3.nii.gz
+|   |   +-- /class_1
+|   |   |   +-- file_1_1.nii.gz
+|   |   |   +-- file_1_2.nii.gz
+|   |   |   +-- file_1_3.nii.gz
+|   |   +-- /class_2
+|   |   |   +-- file_2_1.nii.gz
+|   |   |   +-- file_2_2.nii.gz
+|   |   |   +-- file_2_3.nii.gz
 |   |   +-- [...]
-|   |   +-- /class\_n
-|   |   |   +-- file\_n\_1.nii.gz
-|   |   |   +-- file\_n\_2.nii.gz
-|   |   |   +-- file\_n\_3.nii.gz
+|   |   +-- /class_n
+|   |   |   +-- file_n_1.nii.gz
+|   |   |   +-- file_n_2.nii.gz
+|   |   |   +-- file_n_3.nii.gz
 |   +-- test/
-|   |   +-- file\_1\_1.nii.gz
-|   |   +-- file\_1\_2.nii.gz
-|   |   +-- file\_1\_3.nii.gz
-|   |   +-- file\_2\_1.nii.gz
-|   |   +-- file\_2\_2.nii.gz
-|   |   +-- file\_2\_3.nii.gz
-|   |   +-- file\_n\_1.nii.gz
-|   |   +-- file\_n\_2.nii.gz
-|   |   +-- file\_n\_3.nii.gz
-
+|   |   +-- file_1_1.nii.gz
+|   |   +-- file_1_2.nii.gz
+|   |   +-- file_1_3.nii.gz
+|   |   +-- file_2_1.nii.gz
+|   |   +-- file_2_2.nii.gz
+|   |   +-- file_2_3.nii.gz
+|   |   +-- file_n_1.nii.gz
+|   |   +-- file_n_2.nii.gz
+|   |   +-- file_n_3.nii.gz
+```
 ### Image Preprocessing
 All images will be run under fsl robustfov during the loading of images, and
 saved into a temporary "robustfov/" directory.  This directory will be destroyed
