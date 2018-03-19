@@ -12,30 +12,81 @@ import nibabel as nib
 import sys
 from keras.utils import to_categorical
 
-
-def robust_fov(data_dir, dst_dir):
+def orient(src_dir, dst_dir_root, class_dir=None):
     '''
-    Calls fsl's robustfov on all images in the given directory, outputting them 
-    into a directory at the same level called "robustfov"
+    Orients image to RAI using 3dresample
+
+    Requires AFNI 3dressample
 
     Params:
-        - data_dir: string, path to data from which to remove necks
-        - preprocess_dir: string, path to where the data will be saved
+        - src_dir: string, path to data to reorient
+        - dst_dir_root: string, path to where the data will be saved
+    Returns:
+        - dst_dir: string, path to where all the data is saved
     '''
-    filenames = [x for x in os.listdir(data_dir) 
-            if not os.path.isdir(os.path.join(data_dir,x))]
+    target_orientation = "RAI"
+
+    filenames = [x for x in os.listdir(src_dir) 
+            if not os.path.isdir(os.path.join(src_dir,x))]
+
+    reorient_dir = os.path.join(dst_dir_root, "reorient")
+
+    if class_dir:
+        dst_dir = os.path.join(reorient_dir, class_dir)
+    else:
+        dst_dir = reorient_dir
 
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
 
     for filename in filenames:
-        filepath = os.path.join(data_dir, filename)
+        infile = os.path.join(src_dir, filename)
+        outfile = os.path.join(dst_dir, filename)
+        if os.path.exists(outfile):
+            continue
+        else:
+            call = "3dresample -orient" + " " + target_orientation + " " +\
+                    "-inset" + " " + infile + " " +\
+                    "-prefix" + " " + outfile + " >/dev/null"
+            os.system(call)
+
+    return dst_dir
+
+
+def robust_fov(src_dir, dst_dir_root, class_dir=None):
+    '''
+    Calls fsl's robustfov on all images in the given directory, outputting them 
+    into a directory at the same level called "robustfov"
+
+    Params:
+        - src_dir: string, path to data from which to remove necks
+        - dst_dir_root: string, path to where the data will be saved
+    Returns:
+        - dst_dir: string, path to where all the data is saved
+    '''
+    filenames = [x for x in os.listdir(src_dir) 
+            if not os.path.isdir(os.path.join(src_dir,x))]
+
+    robustfov_dir = os.path.join(dst_dir_root, "robustfov")
+
+    if class_dir:
+        dst_dir = os.path.join(robustfov_dir, class_dir)
+    else:
+        dst_dir = robustfov_dir
+
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+
+    for filename in filenames:
+        filepath = os.path.join(src_dir, filename)
         dst_path = os.path.join(dst_dir, filename)
         if os.path.exists(dst_path):
             continue
         else:
             call = "robustfov -i " + filepath + " -r " + dst_path + " >/dev/null"
             os.system(call)
+
+    return robustfov_dir
 
 
 def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
@@ -66,15 +117,18 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
     #################### CLASSIFICATION OF UNKNOWN DATA ####################
 
     if not labels_known:
-        print("*** CALLING ROBUSTFOV ***")
-        robust_fov(data_dir, preprocess_dir)
+        print("*** CALLING 3DRESAMPLE ***")
+        orient_dir = orient(data_dir, preprocess_dir)
 
-        filenames = [x for x in os.listdir(preprocess_dir) 
-                if not os.path.isdir(os.path.join(preprocess_dir,x))]
+        print("*** CALLING ROBUSTFOV ***")
+        robustfov_dir = robust_fov(orient_dir, preprocess_dir)
+
+        filenames = [x for x in os.listdir(robustfov_dir) 
+                if not os.path.isdir(os.path.join(robustfov_dir,x))]
         filenames.sort()
 
         for f in filenames:
-            img = nib.load(os.path.join(preprocess_dir, f)).get_data()
+            img = nib.load(os.path.join(robustfov_dir, f)).get_data()
             normalized_img = normalize_data(img)
             patches = get_patches(normalized_img, patch_size)
 
@@ -104,15 +158,16 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
             for i in range(len(class_directories)):
                 f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
 
-    # robustfov all images
-    print("*** CALLING ROBUSTFOV ***")
+    print("*** PREPROCESSING ***")
+    # preprocess all images
     for class_dir in tqdm(class_directories):
-        dst_dir = os.path.join(preprocess_dir, os.path.basename(class_dir))
-        robust_fov(class_dir, dst_dir)
+        orient_dir = orient(class_dir, preprocess_dir, os.path.basename(class_dir))
+        robustfov_dir = robust_fov(orient_dir, preprocess_dir, os.path.basename(class_dir))
+        
 
     # point to the newly-processed files
-    class_directories = [os.path.join(preprocess_dir, x)
-                         for x in os.listdir(preprocess_dir)]
+    class_directories = [os.path.join(robustfov_dir, x)
+                         for x in os.listdir(robustfov_dir)]
     class_directories.sort()
 
     print("*** GATHERING PATCHES ***")

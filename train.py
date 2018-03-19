@@ -25,7 +25,7 @@ def now():
 ############### DIRECTORIES ###############
 
 TRAIN_DIR = os.path.join("data", "train")
-PREPROCESSED_TMP_DIR = os.path.join("data", "robustfov")
+PREPROCESSED_TMP_DIR = os.path.join("data", "preprocess")
 WEIGHT_DIR = "weights"
 
 ############### DATA IMPORT ###############

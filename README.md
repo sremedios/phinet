@@ -55,9 +55,12 @@ scanner.
 |   |   +-- file_3.nii.gz
 ```
 ### Image Preprocessing
-All images will be run under fsl's `robustfov` during the loading of images, and
-saved into a temporary "robustfov/" directory.  This directory will be destroyed
-at the end of training, validation, or testing.
+First all images are rotated into RAI orientation using AFNI `3dresample`. This ensures
+that our 45x45x5 patches capture mostly axial information.
+
+Then each of these images will be run under fsl's `robustfov` during the loading of 
+images, and saved into a temporary "robustfov/" directory.  This directory will be 
+destroyed at the end of training, validation, or testing.
 
 ### Training
 Run `train.py`, ensuring that the files are in the correct directories illustrated above.

@@ -25,7 +25,11 @@ start_time = time()
 
 DATA_DIR = "sorting_example"
 UNSORTED_DIR = os.path.join(DATA_DIR, "unsorted")
-PREPROCESSED_TMP_DIR = os.path.join(DATA_DIR, "robustfov")
+PREPROCESSED_TMP_DIR = os.path.join(DATA_DIR, "preprocess")
+
+# this dir must point to the last preprocessing step
+PREPROCESSED_FINAL_STEP_DIR = os.path.join(PREPROCESSED_TMP_DIR, "robustfov")
+
 WEIGHT_DIR = os.path.join("weights")
 
 if not os.path.exists(PREPROCESSED_TMP_DIR):
@@ -82,7 +86,7 @@ for pred, filename in zip(preds, filenames):
 
 # some preprocessing may slightly rename the files
 # this allows us to move the proper, corresponding file
-processed_filenames = os.listdir(PREPROCESSED_TMP_DIR)
+processed_filenames = os.listdir(PREPROCESSED_FINAL_STEP_DIR)
 processed_filenames.sort()
 true_filenames = os.listdir(UNSORTED_DIR)
 true_filenames.sort()

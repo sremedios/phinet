@@ -24,7 +24,7 @@ def now():
 ############### DIRECTORIES ###############
 
 VAL_DIR = os.path.join('data', 'validation')
-PREPROCESSED_TMP_DIR = os.path.join("data", "robustfov")
+PREPROCESSED_TMP_DIR = os.path.join("data", "preprocess")
 WEIGHT_DIR = os.path.join("weights")
 
 ############### DATA IMPORT ###############
