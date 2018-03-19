@@ -82,4 +82,5 @@ accuracy, training time, testing time
 accuracy, training time, testing time
 
 ### References
-If this is used, please cite this paper {TODO}
+If this is used, please cite our work:
+Samuel Remedios, Dzung L. Pham, John A. Butman, Snehashis Roy, "Classifying magnetic resonance image modalities with convolutional neural networks," Proc. SPIE 10575, Medical Imaging 2018: Computer-Aided Diagnosis, 105752I (27 February 2018); doi: 10.1117/12.2293943
