@@ -23,7 +23,6 @@ def now():
 
 ############### DIRECTORIES ###############
 
-
 VAL_DIR = os.path.join('data', 'validation')
 PREPROCESSED_TMP_DIR = os.path.join("data", "robustfov")
 WEIGHT_DIR = os.path.join("weights")
@@ -37,7 +36,7 @@ num_classes = len(y[0])
 
 # get class encodings
 class_encodings = {}
-with open(os.path.join(VAL_DIR, "..", "class_encodings.txt"), 'r') as f:
+with open(os.path.join(VAL_DIR, "..", "..", "class_encodings.txt"), 'r') as f:
     content = f.read().split('\n')
 for line in content:
     if len(line) == 0:

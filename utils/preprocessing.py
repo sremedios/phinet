@@ -99,7 +99,7 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
     # write the mapping of class to a local file in the following space-separated format:
     # CLASS_NAME integer_category
     class_encodings_file = os.path.join(data_dir, "..", "..", "class_encodings.txt")
-    if not os.path.exists(class_encodings_files):
+    if not os.path.exists(class_encodings_file):
         with open(class_encodings_file, 'w') as f:
             for i in range(len(class_directories)):
                 f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
