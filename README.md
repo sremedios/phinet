@@ -60,19 +60,25 @@ saved into a temporary "robustfov/" directory.  This directory will be destroyed
 at the end of training, validation, or testing.
 
 ### Training
-Run train.py, ensuring that the files are in the correct directories illustrated above.
+Run `train.py`, ensuring that the files are in the correct directories illustrated above.
 
 ### Classify
-Run validate.py to get an accuracy score over data for which the labels are known.
+Run `validate.py` to get an accuracy score over data for which the labels are known.
 This runs the latest model over the holdout set.
 
-The file sort.py demonstrates an example, using the weights to sort into the appropriate
+### Example with Sorting 
+The file `sort.py` demonstrates an example, using the weights to sort into the appropriate
 directories the assorted files of classes on which the model was trained.
 
+Place some unlabeled images in the `data/unsorted` directory, then run `sort.py` after training
+your model.
+
 ### Results from downsampled data (SPIE conference paper)
+{TODO}
 accuracy, training time, testing time
 
 ### Improved, Current Results from 3D patches
+{TODO}
 accuracy, training time, testing time
 
 ### References
