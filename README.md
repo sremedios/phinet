@@ -55,18 +55,19 @@ scanner.
 |   |   +-- file_3.nii.gz
 ```
 ### Image Preprocessing
-All images will be run under fsl robustfov during the loading of images, and
+All images will be run under fsl's `robustfov` during the loading of images, and
 saved into a temporary "robustfov/" directory.  This directory will be destroyed
 at the end of training, validation, or testing.
 
 ### Training
-Run train.py.
+Run train.py, ensuring that the files are in the correct directories illustrated above.
+
 ### Classify
 Run validate.py to get an accuracy score over data for which the labels are known.
 This runs the latest model over the holdout set.
 
-Run classify.py (TODO) to obtain mappings between filenames and classes.  This can
-then be used to either validate a pipeline, automatically sort a directory, etc.
+The file sort.py demonstrates an example, using the weights to sort into the appropriate
+directories the assorted files of classes on which the model was trained.
 
 ### Results from downsampled data (SPIE conference paper)
 accuracy, training time, testing time

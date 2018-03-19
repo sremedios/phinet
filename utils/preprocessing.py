@@ -22,7 +22,8 @@ def robust_fov(data_dir, dst_dir):
         - data_dir: string, path to data from which to remove necks
         - preprocess_dir: string, path to where the data will be saved
     '''
-    filenames = os.listdir(data_dir)
+    filenames = [x for x in os.listdir(data_dir) 
+            if not os.path.isdir(os.path.join(data_dir,x))]
 
     if not os.path.exists(dst_dir):
         os.makedirs(dst_dir)
@@ -68,7 +69,8 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
         print("*** CALLING ROBUSTFOV ***")
         robust_fov(data_dir, preprocess_dir)
 
-        filenames = os.listdir(preprocess_dir)
+        filenames = [x for x in os.listdir(preprocess_dir) 
+                if not os.path.isdir(os.path.join(preprocess_dir,x))]
         filenames.sort()
 
         for f in filenames:
@@ -86,8 +88,6 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
 
         return data, all_filenames
 
-
-
     #################### TRAINING OR VALIDATION ####################
 
     # determine number of classes
@@ -98,9 +98,11 @@ def load_data(data_dir, preprocess_dir, patch_size, labels_known=True):
 
     # write the mapping of class to a local file in the following space-separated format:
     # CLASS_NAME integer_category
-    with open(os.path.join(data_dir, "..", "class_encodings.txt"), 'w') as f:
-        for i in range(len(class_directories)):
-            f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
+    class_encodings_file = os.path.join(data_dir, "..", "..", "class_encodings.txt")
+    if not os.path.exists(class_encodings_files):
+        with open(class_encodings_file, 'w') as f:
+            for i in range(len(class_directories)):
+                f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
 
     # robustfov all images
     print("*** CALLING ROBUSTFOV ***")

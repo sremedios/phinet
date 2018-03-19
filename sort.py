@@ -1,110 +1,117 @@
 '''
 Samuel Remedios
 NIH CC CNRM
-Auto sorts data using phinet.
+Example using trained weights for automatic sorting of a directory
 '''
 
 import os
 from time import time
 from operator import itemgetter
-from shutil import move
+import shutil
 import nibabel as nib
 import numpy as np
 
 start_time = time()
 from models.phinet import phinet
 print("Elapsed time to load tensorflow:", time()-start_time)
-from utils.load_data import load_data, downsample, normalize_data, extract_elements, pad
+
+from utils.preprocessing import load_data
+from keras.models import load_model
 from keras import backend as K
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
 start_time = time()
+
+############### DIRECTORIES ###############
+
 DATA_DIR = "sorting_example"
-TMP_DIR = os.path.join(DATA_DIR, "tmp")
-if not os.path.exists(TMP_DIR): os.makedirs(TMP_DIR)
-
 UNSORTED_DIR = os.path.join(DATA_DIR, "unsorted")
-filenames = os.listdir(UNSORTED_DIR)
-for filename in filenames:
-    # first preprocessing step
-    # downsample
-    print("Downsampling...")
-    downsample(filename, UNSORTED_DIR, TMP_DIR, 3)
+PREPROCESSED_TMP_DIR = os.path.join(DATA_DIR, "robustfov")
+WEIGHT_DIR = os.path.join("weights")
 
-    # normalize and pad
-    print("Normalizing and padding...")
-    img_obj = nib.load(os.path.join(TMP_DIR, filename))
-    img_data, affine, header = extract_elements(img_obj)
-    img_data = pad(img_data, 96,96,112)
-    img_data = normalize_data(img_data)
-    nii_obj = nib.Nifti1Image(img_data, affine=affine, header=header)
-    nib.save(nii_obj, os.path.join(TMP_DIR, filename))
+if not os.path.exists(PREPROCESSED_TMP_DIR):
+    os.makedirs(PREPROCESSED_TMP_DIR)
 
+############### DATA IMPORT ###############
+PATCH_SIZE = (45, 45, 15)
 
-    # load data
-    print("Loading processed data...")
-    X = load_data(filename, TMP_DIR)
-    INPUT_SHAPE = X[0].shape
-    weights = os.path.join("weights", "phinet_contrast_2.hdf5")
+X, filenames = load_data(
+    UNSORTED_DIR, PREPROCESSED_TMP_DIR, PATCH_SIZE, labels_known=False)
 
-    print("Loading model...")
-    model_contrast_class = phinet(INPUT_SHAPE, n_inputs=3, load_weights=True, weights=weights)
-    print("Predicting...")
-    preds = model_contrast_class.predict(X, batch_size=1, verbose=1)
-    max_idx, _ = max(enumerate(preds[0]), key=itemgetter(1))
-    if max_idx == 0: contrast = "T1"
-    elif max_idx == 1: contrast = "T2"
-    else: contrast = "FL"
+print("Elapsed time to preprocess data:", time()-start_time)
+start_time = time()
 
-    print("{} is a: {}".format(filename, contrast))
+# get class encodings
+class_encodings = {}
+with open(os.path.join(DATA_DIR, "..", "class_encodings.txt"), 'r') as f:
+    content = f.read().split('\n')
+for line in content:
+    if len(line) == 0:
+        continue
+    entry = line.split()
+    class_encodings[int(entry[1])] = entry[0]
 
-    TARGET_DIR = os.path.join(DATA_DIR, contrast)
+num_classes = len(class_encodings)
 
-    if contrast != 'T2':
-        # secondary preprocessing step due to current training of phinet
+############### LOAD MODEL ###############
 
-        # must remove file for downsample code to overwrite
-        os.remove(os.path.join(TMP_DIR, filename))
+WEIGHT_INDEX = -1  # load most recent weights
+weight_files = os.listdir(WEIGHT_DIR)
+weight_files.sort()
+best_weights = os.path.join(WEIGHT_DIR, weight_files[WEIGHT_INDEX])
+model = load_model(best_weights)
 
-        # downsample
-        downsample(filename, UNSORTED_DIR, TMP_DIR, 2)
+############### PREDICT ###############
 
-        # normalize and pad
-        img_obj = nib.load(os.path.join(TMP_DIR, filename))
-        img_data, affine, header = extract_elements(img_obj)
-        img_data = pad(img_data, 128,128,128)
-        img_data = normalize_data(img_data, contrast=contrast)
-        nii_obj = nib.Nifti1Image(img_data, affine=affine, header=header)
-        nib.save(nii_obj, os.path.join(TMP_DIR, filename))
-    
-        # load appropriate weights
-        if contrast == 'T1':
-            weights = os.path.join("weights", "phinet_T1.hdf5")
-        elif contrast == 'FL':
-            weights = os.path.join("weights", "phinet_FL.hdf5")
+BATCH_SIZE = 128
 
-        # run pre v post if T1 or FLAIR
-        X = load_data(filename, TMP_DIR)
-        INPUT_SHAPE = X[0].shape
-        model_pre_v_post = phinet(INPUT_SHAPE, n_inputs=1, load_weights=True, weights=weights)
-        preds = model_pre_v_post.predict(X, batch_size=1, verbose=0)
-        if preds[0] < 0.5: 
-            TARGET_DIR = os.path.join(TARGET_DIR, "pre")
-        else: 
-            TARGET_DIR = os.path.join(TARGET_DIR, "post")
+# make predictions with best weights and save results
+preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
 
-    print("Moving data...")
+############### AGGREGATE PATCHES ###############
+
+# initialize aggregate
+final_pred_scores = {}
+for filename in set(filenames):
+    final_pred_scores[filename] = np.zeros(preds[0].shape)
+
+for pred, filename in zip(preds, filenames):
+    # add the average of the score, scaled uniformly by the number of patches for that filename
+    final_pred_scores[filename] += pred / filenames.count(filename)
+
+############### SORT ###############
+
+# some preprocessing may slightly rename the files
+# this allows us to move the proper, corresponding file
+processed_filenames = os.listdir(PREPROCESSED_TMP_DIR)
+processed_filenames.sort()
+true_filenames = os.listdir(UNSORTED_DIR)
+true_filenames.sort()
+
+filename_mapping = {}
+for processed_filename, true_filename in zip(processed_filenames, true_filenames):
+    filename_mapping[processed_filename] = true_filename
+
+# use predcitions to sort
+for filename, pred in final_pred_scores.items():
+
+    max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
+    pos = class_encodings[max_idx]
+
+    dst_dir = os.path.join(DATA_DIR, pos)
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+
     # move file
-    if not os.path.exists(TARGET_DIR): os.makedirs(TARGET_DIR)
-    move(os.path.join(UNSORTED_DIR, filename), os.path.join(TARGET_DIR, filename))
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    shutil.move(os.path.join(UNSORTED_DIR, filename_mapping[filename]),
+                os.path.join(dst_dir, filename_mapping[filename]))
 
-    # empty tmp directory
-    os.remove(os.path.join(TMP_DIR, filename))
+############### DELETE TMP DIRECTORY ###############
 
-# delete tmp directory
-time.sleep(0.1)
-os.rmdir(TMP_DIR)
+shutil.rmtree(PREPROCESSED_TMP_DIR)
+
+############### ELAPSED TIME ###############
 
 print("Elapsed time:", time() - start_time)
 K.clear_session()
