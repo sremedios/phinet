@@ -2,8 +2,7 @@
 Samuel Remedios
 NIH CC CNRM
 Train PhiNet to classify MRI as T1, T2, FLAIR
-'''
-
+''' 
 import os
 import numpy as np
 import shutil

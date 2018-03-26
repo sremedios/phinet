@@ -29,7 +29,7 @@ WEIGHT_DIR = os.path.join("weights")
 
 ############### DATA IMPORT ###############
 
-PATCH_SIZE = (45, 45, 15)
+PATCH_SIZE = (35, 35, 15)
 
 X, y, filenames = load_data(VAL_DIR, PREPROCESSED_TMP_DIR, PATCH_SIZE)
 num_classes = len(y[0])
