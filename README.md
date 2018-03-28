@@ -101,18 +101,19 @@ The three tasks are:
 - fl-contrast: Classifying as FLAIR pre-contrast or FLAIR post-contrast
 
 `--task`: Type of task, one of:
-            - modality
-            - t1-contrast
-            - fl-contrast
+    - modality
+    - t1-contrast
+    - fl-contrast
 
 `--datadir`: Path to where the unprocessed data is
 
 `--o`: Path to location where the weights will be saved
 
 `--numcores`: Number of cores to use in parallel preprocessing:
-            - -1 refers to all cores
-            - -2 refers to all but one core
-            - 2 refers to 2 cores
+
+    - -1 refers to all cores
+    - -2 refers to all but one core
+    - 2 refers to 2 cores
 
 Example usage:
 `python train.py --task modality --traindir data/train/ --o weights/modality/ --numcores -1` 
@@ -128,9 +129,9 @@ The three tasks are:
 Run `predict.py` with some desired arguments:
 
 `--task`: Type of task, one of:
-            - modality
-            - t1-contrast
-            - fl-contrast
+    - modality
+    - t1-contrast
+    - fl-contrast
 
 `--infile`: path to the file to to classify
 
@@ -154,9 +155,9 @@ The three tasks are:
 Run `validate.py` with some desired arguments:
 
 `--task`: Type of task, one of:
-            - modality
-            - t1-contrast
-            - fl-contrast
+    - modality
+    - t1-contrast
+    - fl-contrast
 
 `--datadir`: Path to where the unprocessed data is
 
@@ -165,9 +166,9 @@ Run `validate.py` with some desired arguments:
 `--o`: path to directory where results are written
 
 `--numcores`: Number of cores to use in parallel preprocessing:
-            - -1 refers to all cores
-            - -2 refers to all but one core
-            - 2 refers to 2 cores
+    - -1 refers to all cores
+    - -2 refers to all but one core
+    - 2 refers to 2 cores
 
 Example usage:
 `python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --numcores -1`
