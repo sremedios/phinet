@@ -157,6 +157,10 @@ Example usage:
 `python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --encodings class_encodings.txt`
 
 ### Image Preprocessing
+Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.
+
+All preprocessing code is located in `utils/utils.py`.
+
 First, all images are converted to 256x256x256 at 1mm^3 with intensities in [0,255]
 using FreeSurfer's `mri_convert`.
 
@@ -167,10 +171,6 @@ Then each of these images will be run under fsl's `robustfov` to remove the neck
 
 Finally all images are run under `3dWarp`, which aligns the images as well as downsamples them
 to 2mm^3 if necessary for RAM constraints.
-
-
-### Classify
-Run `predict.py` to make a prediction, passing in the preferred command line arguments.
 
 
 ### Results from downsampled data (SPIE conference paper)
