@@ -112,15 +112,19 @@ Run `train.py` with some desired arguments:
 
 `--o`: Path to location where the weights will be saved
 
-`--encodings`: Path to the class_encodings file used to relate one-hot to real class
 
 Example usage:
-`python train.py --task modality --traindir data/train/ --o weights/modality/ --encodings class_encodings.txt`
+`python train.py --task modality --traindir data/train/ --o weights/modality/ 
 
 ### Classify
 Usage:
 
 Run `predict.py` with some desired arguments:
+
+`--task`: Type of task, one of:
+            - modality
+            - t1-contrast
+            - fl-contrast
 
 `--infile`: path to the file to to classify
 
@@ -130,10 +134,8 @@ Run `predict.py` with some desired arguments:
 
 `--preprocesseddir`: output directory where final preprocessed image will be placed
 
-`--encodings`: Path to the class_encodings file used to relate one-hot to real class
-
 Example usage:
-`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess --encodings class_encodings.txt`
+`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess 
 
 ### Validate
 Usage: validate the model on some test data and record metrics.
@@ -151,10 +153,8 @@ Run `validate.py` with some desired arguments:
 
 `--o`: path to directory where results are written
 
-`--encodings`: Path to the class_encodings file used to relate one-hot to real class
-
 Example usage:
-`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --encodings class_encodings.txt`
+`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ 
 
 ### Image Preprocessing
 Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.

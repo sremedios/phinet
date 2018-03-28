@@ -1,1 +1,1 @@
-06-2044_2013-07-18_MR_MPRAGE.nii t1        Confidences:  0.00, 99.80,  0.20
+1946559_2014-07-17_POST.nii	T1        Confidences:  1.61, 74.61, 23.78

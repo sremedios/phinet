@@ -21,7 +21,7 @@ from keras.utils import to_categorical
 def parse_args(session):
     '''
     Parse command line arguments.
-    
+
     Params:
         - session: string, one of "train", "validate", or "test"
     Returns:
@@ -31,8 +31,6 @@ def parse_args(session):
         description="Arguments for Training and Testing")
 
     if session == "train":
-        parser.add_argument('--task', required=True, action='store', dest='task',
-                            help='Type of task: modality, T1-contrast, FL-contrast')
         parser.add_argument('--datadir', required=True, action='store', dest='TRAIN_DIR',
                             help='Where the initial unprocessed data is')
         parser.add_argument('--o', required=True, action='store', dest='OUT_DIR',
@@ -44,12 +42,10 @@ def parse_args(session):
                             help='Learnt model (.hdf5) file')
         parser.add_argument('--o', required=True, action='store', dest='OUTFILE',
                             help='Output filepath and name to where the results are written')
-        parser.add_argument('--preprocesseddir', required=True, action='store', 
+        parser.add_argument('--preprocesseddir', required=True, action='store',
                             dest='PREPROCESSED_DIR',
                             help='Output directory where final preprocessed images are placed ')
     elif session == "validate":
-        parser.add_argument('--task', required=True, action='store', dest='task',
-                            help='Type of task: modality, T1-contrast, FL-contrast')
         parser.add_argument('--datadir', required=True, action='store', dest='VAL_DIR',
                             help='Where the initial unprocessed data is')
         parser.add_argument('--model', required=True, action='store', dest='model',
@@ -60,16 +56,17 @@ def parse_args(session):
         print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
         sys.exit()
 
-    parser.add_argument('--encodings', required=True, action='store', dest='encodings_file',
-                        help='File holding encodings')
+    parser.add_argument('--task', required=True, action='store', dest='task',
+                        help='Type of task: modality, T1-contrast, FL-contrast')
     parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
                         help='For a multi-GPU system, the trainng can be run on different GPUs.'
                         'Use a GPU id (single number), eg: 0 or 1 to run on that particular GPU.'
                         '0 indicates first GPU.  Optional argument. Default is the last GPU.')
-    parser.add_argument('--delete_preprocessed_dir',required=False,action='store',dest='clear',
+    parser.add_argument('--delete_preprocessed_dir', required=False, action='store', dest='clear',
                         default='n', help='delete tmp directory')
 
     return parser.parse_args()
+
 
 def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_path, verbose=1):
     '''
@@ -90,9 +87,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-
     basename = os.path.basename(filename)
-
 
     # convert image to 256^3 1mm^3 coronal images with intensity range [0,255]
     call = "mri_convert -c" + " " + filename + \
@@ -161,15 +156,15 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
             continue
 
         filenames = [os.path.join(class_dir, x)
-                for x in os.listdir(class_dir)]
+                     for x in os.listdir(class_dir)]
 
         # preprocess in parallel using all but one cores (n_jobs=-2)
         Parallel(n_jobs=-2)(delayed(preprocess)(filename=f,
-                                               outdir=preprocess_class_dir,
-                                               tmpdir=TMPDIR,
-                                               reorient_script_path=reorient_script_path,
-                                               robustfov_script_path=robustfov_script_path,
-                                               verbose=0,)
+                                                outdir=preprocess_class_dir,
+                                                tmpdir=TMPDIR,
+                                                reorient_script_path=reorient_script_path,
+                                                robustfov_script_path=robustfov_script_path,
+                                                verbose=0,)
                             for f in filenames)
 
     # remove the intermediate preprocessing steps
@@ -182,15 +177,23 @@ def load_image(filename):
     return img
 
 
-def get_classes(encoding_file):
+def get_classes(task):
     class_encodings = {}
-    with open(encoding_file, 'r') as f:
-        content = f.read().split('\n')
-    for line in content:
-        if len(line) == 0:
-            continue
-        entry = line.split()
-        class_encodings[int(entry[1])] = entry[0]
+
+    if task=="modality":
+        class_encodings = {0: "FL",
+                           1: "T1",
+                           2: "T2",}
+    elif task=="t1-contrast":
+        class_encodings = {0: "T1 Post",
+                           1: "T1 Pre",}
+    elif task=="fl-contrast":
+        class_encodings = {0: "FL Post",
+                           1: "FL Pre",}
+    else:
+        print("Invalid task: must be one of \"modality\", \"t1-contrast\", \"fl-contrast\"")
+        sys.exit()
+        
     return class_encodings
 
 
@@ -240,16 +243,6 @@ def load_data(data_dir, labels_known=True):
                          for x in os.listdir(data_dir)]
     class_directories.sort()
     num_classes = len(class_directories)
-
-    # write the mapping of class to a local file in the following space-separated format:
-    # CLASS_NAME integer_category
-    class_encodings_file = os.path.join(
-        data_dir, "..", "..", "..", "class_encodings.txt")
-    if not os.path.exists(class_encodings_file):
-        with open(class_encodings_file, 'w') as f:
-            for i in range(len(class_directories)):
-                f.write(os.path.basename(
-                    class_directories[i]) + " " + str(i) + '\n')
 
     # point to the newly-processed files
     class_directories = [os.path.join(data_dir, x)

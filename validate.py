@@ -40,7 +40,7 @@ model = load_model(results.model)
 preprocess_dir(TASK_DIR, PREPROCESSED_DIR, REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH)
 
 # get class encodings
-class_encodings = get_classes(results.encodings_file)
+class_encodings = get_classes(task)
 
 ############### DATA IMPORT ###############
 

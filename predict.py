@@ -28,6 +28,7 @@ if __name__ == '__main__':
     TMP_DIR = "tmp_intermediate_preprocessing"
     if not os.path.exists(TMP_DIR):
         os.makedirs(TMP_DIR)
+    task = results.task.lower()
 
     ############### PREPROCESSING ###############
 
@@ -38,7 +39,7 @@ if __name__ == '__main__':
                               ROBUSTFOV_SCRIPT_PATH,
                               verbose=0,)
 
-    class_encodings = get_classes(results.encodings_file)
+    class_encodings = get_classes(task=task)
 
     ############### PREDICT ###############
 
