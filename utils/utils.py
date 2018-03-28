@@ -46,7 +46,7 @@ def parse_args(session):
                             help='Output filepath and name to where the results are written')
         parser.add_argument('--preprocesseddir', required=True, action='store', 
                             dest='PREPROCESSED_DIR',
-                            help='Output directory where the trained models are written')
+                            help='Output directory where final preprocessed images are placed ')
     elif session == "validate":
         parser.add_argument('--task', required=True, action='store', dest='task',
                             help='Type of task: modality, T1-contrast, FL-contrast')

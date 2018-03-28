@@ -100,14 +100,61 @@ scanner.
 ```
 ### Training
 Usage:
+
+Run `train.py` with some desired arguments: 
+
 `--task`: Type of task, one of:
             - modality
             - t1-contrast
             - fl-contrast
+
 `--datadir`: Path to where the unprocessed data is
 
+`--o`: Path to location where the weights will be saved
 
+`--encodings`: Path to the class_encodings file used to relate one-hot to real class
 
+Example usage:
+`python train.py --task modality --traindir data/train/ --o weights/modality/ --encodings class_encodings.txt`
+
+### Classify
+Usage:
+
+Run `predict.py` with some desired arguments:
+
+`--infile`: path to the file to to classify
+
+`--model`: path to the neural network model to use
+
+`--o`: path and filename where results are written
+
+`--preprocesseddir`: output directory where final preprocessed image will be placed
+
+`--encodings`: Path to the class_encodings file used to relate one-hot to real class
+
+Example usage:
+`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess --encodings class_encodings.txt`
+
+### Validate
+Usage: validate the model on some test data and record metrics.
+
+Run `validate.py` with some desired arguments:
+
+`--task`: Type of task, one of:
+            - modality
+            - t1-contrast
+            - fl-contrast
+
+`--datadir`: Path to where the unprocessed data is
+
+`--model`: path to the neural network model to use
+
+`--o`: path to directory where results are written
+
+`--encodings`: Path to the class_encodings file used to relate one-hot to real class
+
+Example usage:
+`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --encodings class_encodings.txt`
 
 ### Image Preprocessing
 First, all images are converted to 256x256x256 at 1mm^3 with intensities in [0,255]
@@ -121,11 +168,6 @@ Then each of these images will be run under fsl's `robustfov` to remove the neck
 Finally all images are run under `3dWarp`, which aligns the images as well as downsamples them
 to 2mm^3 if necessary for RAM constraints.
 
-### Training
-Check the possible command line arguments in the `parse_args()` function in utils/utils.py
-
-Run `train.py` with the preferred arguments, ensuring that the files are in the correct 
-directories illustrated above.
 
 ### Classify
 Run `predict.py` to make a prediction, passing in the preferred command line arguments.
