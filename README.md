@@ -102,6 +102,7 @@ scanner.
 Usage:
 
 Run `train.py` on a task with some desired arguments.
+
 The three tasks are:
 - modality: Classifying a T1, T2, or FLAIR image without contrast
 - t1-contrast: Classifying as T1 pre-contrast or T1 post-contrast
@@ -121,7 +122,12 @@ Example usage:
 `python train.py --task modality --traindir data/train/ --o weights/modality/` 
 
 ### Classify
-Usage:
+Usage: classify a single image for some task:
+
+The three tasks are:
+- modality: Classifying a T1, T2, or FLAIR image without contrast
+- t1-contrast: Classifying as T1 pre-contrast or T1 post-contrast
+- fl-contrast: Classifying as FLAIR pre-contrast or FLAIR post-contrast
 
 Run `predict.py` with some desired arguments:
 
@@ -143,6 +149,11 @@ Example usage:
 
 ### Validate
 Usage: validate the model on some test data and record metrics.
+
+The three tasks are:
+- modality: Classifying a T1, T2, or FLAIR image without contrast
+- t1-contrast: Classifying as T1 pre-contrast or T1 post-contrast
+- fl-contrast: Classifying as FLAIR pre-contrast or FLAIR post-contrast
 
 Run `validate.py` with some desired arguments:
 
