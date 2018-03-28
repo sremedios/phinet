@@ -81,27 +81,27 @@ if __name__ == '__main__':
 
     # Checkpoint
     fpath = os.path.join(
-        WEIGHT_DIR, task+"_"+now()+"-epoch-{epoch:04d}-acc-{acc:.4f}.hdf5")
+        WEIGHT_DIR, task+"_"+now()+"-epoch-{epoch:04d}-val_acc-{val_acc:.4f}.hdf5")
     checkpoint = ModelCheckpoint(
-        fpath, monitor='acc', verbose=1, save_best_only=True, mode='max')
+        fpath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
     callbacks_list.append(checkpoint)
 
     # Dynamic Learning Rate
-    dlr = ReduceLROnPlateau(monitor="acc", factor=0.5, patience=5,
+    dlr = ReduceLROnPlateau(monitor="val_acc", factor=0.5, patience=5,
                             mode='max', verbose=1, cooldown=5, min_lr=1e-8)
-    #callbacks_list.append(dlr)
+    callbacks_list.append(dlr)
 
     # Early Stopping, used to quantify convergence
     # convergence is defined as no improvement by 1e-4 for 10 consecutive epochs
     es = EarlyStopping(monitor='loss', min_delta=0, patience=10)
-    #callbacks_list.append(es)
+    callbacks_list.append(es)
 
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
     BATCH_SIZE = 2 
 
-    model.fit(X, y, epochs=NB_EPOCHS,
+    model.fit(X, y, epochs=NB_EPOCHS, validation_split=0.2,
               batch_size=BATCH_SIZE, verbose=1, callbacks=callbacks_list)
 
     #shutil.rmtree(PREPROCESSED_DIR)
