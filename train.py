@@ -2,7 +2,7 @@
 Samuel Remedios
 NIH CC CNRM
 Train PhiNet to classify MRI as T1, T2, FLAIR
-''' 
+'''
 import os
 import numpy as np
 import shutil
@@ -22,8 +22,13 @@ if __name__ == '__main__':
     results = parse_args("train")
 
     TRAIN_DIR = os.path.abspath(os.path.expanduser(results.TRAIN_DIR))
-    REORIENT_SCRIPT_PATH = os.path.join("utils", "reorient.sh")
-    ROBUSTFOV_SCRIPT_PATH = os.path.join("utils", "robustfov.sh")
+    CUR_DIR = os.path.abspath(
+        os.path.expanduser(
+            os.path.dirname(__file__)
+        )
+    )
+    REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
+    ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
 
     task = results.task.lower()
@@ -43,16 +48,16 @@ if __name__ == '__main__':
         print("Invalid task")
         sys.exit()
 
-
     ############### PREPROCESSING ###############
 
-    preprocess_dir(TASK_DIR, PREPROCESSED_DIR, REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH)
+    preprocess_dir(TASK_DIR, PREPROCESSED_DIR,
+                   REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
+                   results.numcores)
 
     ############### DATA IMPORT ###############
 
     X, y, filenames = load_data(PREPROCESSED_DIR)
     X, y = shuffle(X, y, random_state=0)
-
 
     num_classes = len(y[0])
 
@@ -73,7 +78,8 @@ if __name__ == '__main__':
         best_weights = os.path.join(WEIGHT_DIR, weight_files[-1])
         model = load_model(best_weights)
     else:
-        model = phinet(input_shape=img_shape, n_classes=num_classes, learning_rate=LR)
+        model = phinet(input_shape=img_shape,
+                       n_classes=num_classes, learning_rate=LR)
 
     ############### CALLBACKS ###############
 
@@ -99,10 +105,10 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2 
+    BATCH_SIZE = 2
 
     model.fit(X, y, epochs=NB_EPOCHS, validation_split=0.2,
               batch_size=BATCH_SIZE, verbose=1, callbacks=callbacks_list)
 
-    #shutil.rmtree(PREPROCESSED_DIR)
+    # shutil.rmtree(PREPROCESSED_DIR)
     K.clear_session()

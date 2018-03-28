@@ -22,8 +22,15 @@ from keras import backend as K
 results = parse_args("validate")
 
 VAL_DIR = os.path.abspath(os.path.expanduser(results.VAL_DIR))
-REORIENT_SCRIPT_PATH = os.path.join("utils", "reorient.sh")
-ROBUSTFOV_SCRIPT_PATH = os.path.join("utils", "robustfov.sh")
+
+CUR_DIR = os.path.abspath(
+    os.path.expanduser(
+        os.path.dirname(__file__)
+    )
+)
+
+REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
+ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
 
 task = results.task.lower()
 
@@ -37,7 +44,9 @@ model = load_model(results.model)
 
 ############### PREPROCESSING ###############
 
-preprocess_dir(TASK_DIR, PREPROCESSED_DIR, REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH)
+preprocess_dir(TASK_DIR, PREPROCESSED_DIR,
+               REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
+               results.numcores)
 
 # get class encodings
 class_encodings = get_classes(task)
@@ -54,7 +63,7 @@ print("Test data loaded.")
 PRED_DIR = os.path.join("validation_results")
 if not os.path.exists(PRED_DIR):
     os.makedirs(PRED_DIR)
-BATCH_SIZE = 16 
+BATCH_SIZE = 16
 
 # make predictions with best weights and save results
 preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)

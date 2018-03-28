@@ -109,9 +109,13 @@ The three tasks are:
 
 `--o`: Path to location where the weights will be saved
 
+`--numcores`: Number of cores to use in parallel preprocessing:
+            - -1 refers to all cores
+            - -2 refers to all but one core
+            - 2 refers to 2 cores
 
 Example usage:
-`python train.py --task modality --traindir data/train/ --o weights/modality/` 
+`python train.py --task modality --traindir data/train/ --o weights/modality/ --numcores -1` 
 
 ### Classify
 Usage: classify a single image for some task:
@@ -160,8 +164,13 @@ Run `validate.py` with some desired arguments:
 
 `--o`: path to directory where results are written
 
+`--numcores`: Number of cores to use in parallel preprocessing:
+            - -1 refers to all cores
+            - -2 refers to all but one core
+            - 2 refers to 2 cores
+
 Example usage:
-`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/`
+`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --numcores -1`
 
 ### Image Preprocessing
 Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.

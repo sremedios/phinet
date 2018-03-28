@@ -56,6 +56,9 @@ def parse_args(session):
         print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
         sys.exit()
 
+    parser.add_argument('--numcores', required=False, action='store', dest='numcores',
+                        default='1', type=int,
+                        help='Number of cores to preprocess in parallel with')
     parser.add_argument('--task', required=True, action='store', dest='task',
                         help='Type of task: modality, T1-contrast, FL-contrast')
     parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
@@ -123,7 +126,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     return os.listdir(outdir)[0]
 
 
-def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path):
+def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, ncores):
     '''
     Preprocesses all files in train_dir into preprocess_dir using prepreocess.sh
 
@@ -133,7 +136,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
         - reorient_script_path: string, path to bash script to reorient image
         - robustfov_script_path: string, path to bash script to robustfov image
     '''
-    TMPDIR = "tmp_intermediate_preprocessing_steps"
+    TMPDIR = os.path.join(preprocess_dir, "tmp_intermediate_preprocessing_steps")
     if not os.path.exists(TMPDIR):
         os.makedirs(TMPDIR)
 
@@ -159,7 +162,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
                      for x in os.listdir(class_dir)]
 
         # preprocess in parallel using all but one cores (n_jobs=-2)
-        Parallel(n_jobs=-2)(delayed(preprocess)(filename=f,
+        Parallel(n_jobs=ncores)(delayed(preprocess)(filename=f,
                                                 outdir=preprocess_class_dir,
                                                 tmpdir=TMPDIR,
                                                 reorient_script_path=reorient_script_path,

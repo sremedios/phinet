@@ -23,9 +23,16 @@ if __name__ == '__main__':
 
     results = parse_args("test")
     model = load_model(results.model)
-    REORIENT_SCRIPT_PATH = os.path.join("utils", "reorient.sh")
-    ROBUSTFOV_SCRIPT_PATH = os.path.join("utils", "robustfov.sh")
-    TMP_DIR = "tmp_intermediate_preprocessing"
+
+    CUR_DIR = os.path.abspath(
+            os.path.expanduser(
+                os.path.dirname(__file__)
+                )
+            )
+
+    REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
+    ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
+    TMP_DIR = os.path.join(results.PREPROCESSED_DIR, "tmp_intermediate_preprocessing")
     if not os.path.exists(TMP_DIR):
         os.makedirs(TMP_DIR)
     task = results.task.lower()
