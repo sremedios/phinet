@@ -101,7 +101,11 @@ scanner.
 ### Training
 Usage:
 
-Run `train.py` with some desired arguments: 
+Run `train.py` on a task with some desired arguments.
+The three tasks are:
+- modality: Classifying a T1, T2, or FLAIR image without contrast
+- t1-contrast: Classifying as T1 pre-contrast or T1 post-contrast
+- fl-contrast: Classifying as FLAIR pre-contrast or FLAIR post-contrast
 
 `--task`: Type of task, one of:
             - modality
