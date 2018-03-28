@@ -55,26 +55,26 @@ scanner.
 |   |   +-- file_3.nii.gz
 ```
 ### Image Preprocessing
-First all images are rotated into RAI orientation using AFNI `3dresample`. This ensures
-that our 45x45x5 patches capture mostly axial information.
+First, all images are converted to 256x256x256 at 1mm^3 with intensities in [0,255]
+using FreeSurfer's `mri_convert`.
 
-Then each of these images will be run under fsl's `robustfov` during the loading of 
-images, and saved into a temporary "robustfov/" directory.  This directory will be 
-destroyed at the end of training, validation, or testing.
+Then all images are rotated into RAI orientation using AFNI `3dresample`.  While unnecessary,
+this allows for visual inspection of images learned by the model.
+
+Then each of these images will be run under fsl's `robustfov` to remove the necks.
+
+Finally all images are run under `3dWarp`, which aligns the images as well as downsamples them
+to 2mm^3 if necessary for RAM constraints.
 
 ### Training
-Run `train.py`, ensuring that the files are in the correct directories illustrated above.
+Check the possible command line arguments in the `parse_args()` function in utils/utils.py
+
+Run `train.py` with the preferred arguments, ensuring that the files are in the correct 
+directories illustrated above.
 
 ### Classify
-Run `validate.py` to get an accuracy score over data for which the labels are known.
-This runs the latest model over the holdout set.
+Run `predict.py` to make a prediction, passing in the preferred command line arguments.
 
-### Example with Sorting 
-The file `sort.py` demonstrates an example, using the weights to sort into the appropriate
-directories the assorted files of classes on which the model was trained.
-
-Place some unlabeled images in the `data/unsorted` directory, then run `sort.py` after training
-your model.
 
 ### Results from downsampled data (SPIE conference paper)
 {TODO}
