@@ -114,7 +114,7 @@ Run `train.py` with some desired arguments:
 
 
 Example usage:
-`python train.py --task modality --traindir data/train/ --o weights/modality/ 
+`python train.py --task modality --traindir data/train/ --o weights/modality/` 
 
 ### Classify
 Usage:
@@ -135,7 +135,7 @@ Run `predict.py` with some desired arguments:
 `--preprocesseddir`: output directory where final preprocessed image will be placed
 
 Example usage:
-`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess 
+`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess`
 
 ### Validate
 Usage: validate the model on some test data and record metrics.
@@ -154,7 +154,7 @@ Run `validate.py` with some desired arguments:
 `--o`: path to directory where results are written
 
 Example usage:
-`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ 
+`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/`
 
 ### Image Preprocessing
 Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.
