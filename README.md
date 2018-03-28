@@ -16,77 +16,69 @@ scanner.
 ./phinet/
 +-- data/
 |   +-- train/
-|   |   +-- /task_1
-|   |   |   +-- /class_1
-|   |   |   |   +-- t_file_1_1.nii.gz
-|   |   |   |   +-- t_file_1_2.nii.gz
-|   |   |   |   +-- t_file_1_3.nii.gz
-|   |   |   +-- /class_2
-|   |   |   |   +-- t_file_2_1.nii.gz
-|   |   |   |   +-- t_file_2_2.nii.gz
-|   |   |   |   +-- t_file_2_3.nii.gz
-|   |   |   +-- [...]
-|   |   |   +-- /class_n
-|   |   |   |   +-- t_file_n_1.nii.gz
-|   |   |   |   +-- t_file_n_2.nii.gz
-|   |   |   |   +-- t_file_n_3.nii.gz
-|   |   +-- /task_2
-|   |   |   +-- /class_1
-|   |   |   |   +-- t_file_1_1.nii.gz
-|   |   |   |   +-- t_file_1_2.nii.gz
-|   |   |   |   +-- t_file_1_3.nii.gz
-|   |   |   +-- /class_2
-|   |   |   |   +-- t_file_2_1.nii.gz
-|   |   |   |   +-- t_file_2_2.nii.gz
-|   |   |   |   +-- t_file_2_3.nii.gz
-|   |   |   +-- [...]
-|   |   |   +-- /class_n
-|   |   |   |   +-- t_file_n_1.nii.gz
-|   |   |   |   +-- t_file_n_2.nii.gz
-|   |   |   |   +-- t_file_n_3.nii.gz
-|   |   +-- /task_n
-|   |   |   +-- /class_1
-|   |   |   |   +-- t_file_1_1.nii.gz
-|   |   |   |   +-- t_file_1_2.nii.gz
-|   |   |   |   +-- t_file_1_3.nii.gz
-|   |   |   +-- /class_2
-|   |   |   |   +-- t_file_2_1.nii.gz
-|   |   |   |   +-- t_file_2_2.nii.gz
-|   |   |   |   +-- t_file_2_3.nii.gz
-|   |   |   +-- [...]
-|   |   |   +-- /class_n
-|   |   |   |   +-- t_file_n_1.nii.gz
-|   |   |   |   +-- t_file_n_2.nii.gz
-|   |   |   |   +-- t_file_n_3.nii.gz
+|   |   +-- /modality
+|   |   |   +-- /FL
+|   |   |   |   +-- my_flair_1.nii.gz
+|   |   |   |   +-- my_flair_2.nii.gz
+|   |   |   |   +-- my_flair_3.nii.gz
+|   |   |   +-- /T1
+|   |   |   |   +-- my_t1_1.nii.gz
+|   |   |   |   +-- my_t1_2.nii.gz
+|   |   |   |   +-- my_t1_3.nii.gz
+|   |   |   +-- /T2
+|   |   |   |   +-- my_t2_1.nii.gz
+|   |   |   |   +-- my_t2_2.nii.gz
+|   |   |   |   +-- my_t2_3.nii.gz
+|   |   +-- /t1-contrast
+|   |   |   +-- /t1post
+|   |   |   |   +-- my_t1post_1.nii.gz
+|   |   |   |   +-- my_t1post_2.nii.gz
+|   |   |   |   +-- my_t1post_3.nii.gz
+|   |   |   +-- /t1pre
+|   |   |   |   +-- my_t1pre_1.nii.gz
+|   |   |   |   +-- my_t1pre_2.nii.gz
+|   |   |   |   +-- my_t1pre_3.nii.gz
+|   |   +-- /fl-contrast
+|   |   |   +-- /flpost
+|   |   |   |   +-- my_flpost_1.nii.gz
+|   |   |   |   +-- my_flpost_2.nii.gz
+|   |   |   |   +-- my_flpost_3.nii.gz
+|   |   |   +-- /flpre
+|   |   |   |   +-- my_flpre_1.nii.gz
+|   |   |   |   +-- my_flpre_2.nii.gz
+|   |   |   |   +-- my_flpre_3.nii.gz
 |   +-- validation/
-|   |   +-- /task_1
-|   |   |   +-- /class_1
-|   |   |   |   +-- v_file_1_1.nii.gz
-|   |   |   |   +-- v_file_1_2.nii.gz
-|   |   |   |   +-- v_file_1_3.nii.gz
-|   |   |   +-- /class_2
-|   |   |   |   +-- v_file_2_1.nii.gz
-|   |   |   |   +-- v_file_2_2.nii.gz
-|   |   |   |   +-- v_file_2_3.nii.gz
-|   |   |   +-- [...]
-|   |   |   +-- /class_n
-|   |   |   |   +-- v_file_n_1.nii.gz
-|   |   |   |   +-- v_file_n_2.nii.gz
-|   |   |   |   +-- v_file_n_3.nii.gz
-|   |   +-- /task_n
-|   |   |   +-- /class_1
-|   |   |   |   +-- v_file_1_1.nii.gz
-|   |   |   |   +-- v_file_1_2.nii.gz
-|   |   |   |   +-- v_file_1_3.nii.gz
-|   |   |   +-- /class_2
-|   |   |   |   +-- v_file_2_1.nii.gz
-|   |   |   |   +-- v_file_2_2.nii.gz
-|   |   |   |   +-- v_file_2_3.nii.gz
-|   |   |   +-- [...]
-|   |   |   +-- /class_n
-|   |   |   |   +-- v_file_n_1.nii.gz
-|   |   |   |   +-- v_file_n_2.nii.gz
-|   |   |   |   +-- v_file_n_3.nii.gz
+|   |   +-- /modality
+|   |   |   +-- /FL
+|   |   |   |   +-- my_flair_1.nii.gz
+|   |   |   |   +-- my_flair_2.nii.gz
+|   |   |   |   +-- my_flair_3.nii.gz
+|   |   |   +-- /T1
+|   |   |   |   +-- my_t1_1.nii.gz
+|   |   |   |   +-- my_t1_2.nii.gz
+|   |   |   |   +-- my_t1_3.nii.gz
+|   |   |   +-- /T2
+|   |   |   |   +-- my_t2_1.nii.gz
+|   |   |   |   +-- my_t2_2.nii.gz
+|   |   |   |   +-- my_t2_3.nii.gz
+|   |   +-- /t1-contrast
+|   |   |   +-- /t1post
+|   |   |   |   +-- my_t1post_1.nii.gz
+|   |   |   |   +-- my_t1post_2.nii.gz
+|   |   |   |   +-- my_t1post_3.nii.gz
+|   |   |   +-- /t1pre
+|   |   |   |   +-- my_t1pre_1.nii.gz
+|   |   |   |   +-- my_t1pre_2.nii.gz
+|   |   |   |   +-- my_t1pre_3.nii.gz
+|   |   +-- /fl-contrast
+|   |   |   +-- /flpost
+|   |   |   |   +-- my_flpost_1.nii.gz
+|   |   |   |   +-- my_flpost_2.nii.gz
+|   |   |   |   +-- my_flpost_3.nii.gz
+|   |   |   +-- /flpre
+|   |   |   |   +-- my_flpre_1.nii.gz
+|   |   |   |   +-- my_flpre_2.nii.gz
+|   |   |   |   +-- my_flpre_3.nii.gz
 |   +-- test/
 |   |   +-- file_1.nii.gz
 |   |   +-- file_2.nii.gz
