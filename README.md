@@ -110,10 +110,10 @@ The three tasks are:
 `--o`: Path to location where the weights will be saved
 
 `--numcores`: Number of cores to use in parallel preprocessing:
-
-    - -1 refers to all cores
-    - -2 refers to all but one core
-    - 2 refers to 2 cores
+    * 1 refers to 1 core
+    * 2 refers to 2 cores
+    * -1 refers to all cores
+    * -2 refers to all but one core
 
 Example usage:
 `python train.py --task modality --traindir data/train/ --o weights/modality/ --numcores -1` 
@@ -166,9 +166,10 @@ Run `validate.py` with some desired arguments:
 `--o`: path to directory where results are written
 
 `--numcores`: Number of cores to use in parallel preprocessing:
-    - -1 refers to all cores
-    - -2 refers to all but one core
-    - 2 refers to 2 cores
+    * 1 refers to 1 core
+    * 2 refers to 2 cores
+    * -1 refers to all cores
+    * -2 refers to all but one core
 
 Example usage:
 `python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --numcores -1`
