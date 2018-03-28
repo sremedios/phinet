@@ -1,0 +1,1 @@
+06-2044_2013-07-18_MR_MPRAGE.nii t1        Confidences:  0.00, 99.80,  0.20

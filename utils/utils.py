@@ -8,6 +8,9 @@ import os
 import random
 from tqdm import *
 import argparse
+import glob
+import shutil
+from joblib import Parallel, delayed
 import numpy as np
 import nibabel as nib
 import sys
@@ -15,65 +18,129 @@ from datetime import datetime
 from keras.utils import to_categorical
 
 
-def parse_training_args():
+def parse_args(session):
+    '''
+    Parse command line arguments.
+    
+    Params:
+        - session: string, one of "train", "validate", or "test"
+    Returns:
+        - parse_args: object, accessible representation of args
+    '''
     parser = argparse.ArgumentParser(
         description="Arguments for Training and Testing")
 
-    parser.add_argument('--task', required=True, action='store', dest='task',
-                        help='Type of task: modality, T1-contrast, FL-contrast')
-    parser.add_argument('--traindir', required=True, action='store', dest='TRAIN_DIR',
-                        help='Where the initial unprocessed data is')
-    parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
-                        help='For a multi-GPU system, the trainng can be run on different GPUs.'
-                        'Use a GPU id (single number), e.g. 0 or 1 to run on that particular GPU.'
-                        '0 indicates first GPU.  Optional argument. Default is the last GPU.')
-    parser.add_argument('--o', required=True, action='store', dest='OUT_DIR',
-                        help='Output directory where the trained models are written')
+    if session == "train":
+        parser.add_argument('--task', required=True, action='store', dest='task',
+                            help='Type of task: modality, T1-contrast, FL-contrast')
+        parser.add_argument('--datadir', required=True, action='store', dest='TRAIN_DIR',
+                            help='Where the initial unprocessed data is')
+        parser.add_argument('--o', required=True, action='store', dest='OUT_DIR',
+                            help='Output directory where the trained models are written')
+    elif session == "test":
+        parser.add_argument('--infile', required=True, action='store', dest='INFILE',
+                            help='Image to classify')
+        parser.add_argument('--model', required=True, action='store', dest='model',
+                            help='Learnt model (.hdf5) file')
+        parser.add_argument('--o', required=True, action='store', dest='OUTFILE',
+                            help='Output filepath and name to where the results are written')
+        parser.add_argument('--preprocesseddir', required=True, action='store', 
+                            dest='PREPROCESSED_DIR',
+                            help='Output directory where the trained models are written')
+    elif session == "validate":
+        parser.add_argument('--task', required=True, action='store', dest='task',
+                            help='Type of task: modality, T1-contrast, FL-contrast')
+        parser.add_argument('--datadir', required=True, action='store', dest='VAL_DIR',
+                            help='Where the initial unprocessed data is')
+        parser.add_argument('--model', required=True, action='store', dest='model',
+                            help='Learnt model (.hdf5) file')
+        parser.add_argument('--o', required=True, action='store', dest='OUTFILE',
+                            help='Output directory where the results are written')
+    else:
+        print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
+        sys.exit()
 
-    return parser.parse_args()
-
-def parse_testing_args():
-    parser = argparse.ArgumentParser(
-        description="Arguments for Training and Testing")
-
-    parser.add_argument('--infile', required=True, action='store', dest='INFILE',
-                        help='Image to classify')
-    parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
-                        help='For a multi-GPU system, the trainng can be run on different GPUs.'
-                        'Use a GPU id (single number), e.g. 0 or 1 to run on that particular GPU.'
-                        '0 indicates first GPU.  Optional argument. Default is the last GPU.')
     parser.add_argument('--encodings', required=True, action='store', dest='encodings_file',
                         help='File holding encodings')
-    parser.add_argument('--model', required=True, action='store', dest='model',
-                        help='Learnt model (.hdf5) file')
-    parser.add_argument('--delete_preprocessed_dir', required=False, action='store', dest='clear',
+    parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
+                        help='For a multi-GPU system, the trainng can be run on different GPUs.'
+                        'Use a GPU id (single number), eg: 0 or 1 to run on that particular GPU.'
+                        '0 indicates first GPU.  Optional argument. Default is the last GPU.')
+    parser.add_argument('--delete_preprocessed_dir',required=False,action='store',dest='clear',
                         default='n', help='delete tmp directory')
-    parser.add_argument('--o', required=True, action='store', dest='OUTFILE',
-                        help='Output directory where the results are written')
-    parser.add_argument('--outdir', required=True, action='store', dest='OUT_DIR',
-                        help='Output directory where the preprocessing files are written')
 
     return parser.parse_args()
 
-def preprocess_file(infile, dst_dir, script_path):
+def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_path, verbose=1):
     '''
-    Preprocesses a single file
-    '''
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    call = "sh" + " " + script_path + " " + infile + " " + dst_dir 
-    os.system(call)
-    return os.listdir(dst_dir)[0]
+    Preprocess a single file.
+    Can be used in parallel
 
-def preprocess_dir(train_dir, preprocess_dir, script_path):
+    Params:
+        - filename: string, path to file to preprocess
+        - outdir: string, path to destination directory to save preprocessed image
+        - tmpdir: string, path to tmp directory for intermediate steps
+        - reorient_script_path: string, path to bash script to reorient image
+        - robustfov_script_path: string, path to bash script to robustfov image
+        - verbose: int, if 0, surpress all output. If 1, display all output
+
+    Returns:
+        - string, name of new file in its new location
+    '''
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+
+    basename = os.path.basename(filename)
+
+
+    # convert image to 256^3 1mm^3 coronal images with intensity range [0,255]
+    call = "mri_convert -c" + " " + filename + \
+        " " + os.path.join(tmpdir, basename)
+    if verbose == 0:
+        call = call + " " + ">/dev/null"
+    os.system(call)
+
+    # reorient to RAI. Not necessary
+    call = reorient_script_path + " " + \
+        os.path.join(tmpdir, basename) + " " + "RAI"
+    if verbose == 0:
+        call = call + " " + ">/dev/null"
+    os.system(call)
+
+    # robustfov to make sure neck isn't included
+    call = robustfov_script_path + " " + os.path.join(tmpdir, basename) + " " +\
+        os.path.join(tmpdir, "robust_" + basename) + " " + "160"
+    if verbose == 0:
+        call = call + " " + ">/dev/null"
+    os.system(call)
+
+    # 3dWarp to make images AC-PC aligned. Not necessary.  Ideally images should be
+    # rigid registered to some template for uniformity, but rigid registration is slow
+    # This is a faster way.  -newgrid 2 will resample the image to 2mm^3 resolution
+    outfile = os.path.join(outdir, basename)
+    infile = os.path.join(tmpdir, "robust_" + basename)
+    call = "3dWarp -deoblique -NN -newgrid 2 -prefix" + " " + outfile + " " + infile
+    if verbose == 0:
+        call = call + " " + ">/dev/null"
+    os.system(call)
+
+    return os.listdir(outdir)[0]
+
+
+def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path):
     '''
     Preprocesses all files in train_dir into preprocess_dir using prepreocess.sh
 
     Params:
         - train_dir: string, path to where all the training images are kept
         - preprocess_dir: string, path to where all preprocessed images will be saved
-        - script_path: string, path to the preprocess script
+        - reorient_script_path: string, path to bash script to reorient image
+        - robustfov_script_path: string, path to bash script to robustfov image
     '''
+    TMPDIR = "tmp_intermediate_preprocessing_steps"
+    if not os.path.exists(TMPDIR):
+        os.makedirs(TMPDIR)
 
     class_directories = [os.path.join(train_dir, x)
                          for x in os.listdir(train_dir)]
@@ -86,36 +153,46 @@ def preprocess_dir(train_dir, preprocess_dir, script_path):
         preprocess_class_dir = os.path.join(
             preprocess_dir, os.path.basename(class_dir))
 
-        if os.path.exists(preprocess_class_dir) and \
-                len(os.listdir(class_dir)) == len(os.listdir(preprocess_class_dir)):
-            print("Already preprocessed.")
-            continue
-
         if not os.path.exists(preprocess_class_dir):
             os.makedirs(preprocess_class_dir)
 
-        filenames = [os.path.join(class_dir, x)
-                     for x in os.listdir(class_dir)]
+        if len(os.listdir(class_dir)) == len(os.listdir(preprocess_class_dir)):
+            print("Already preprocessed.")
+            continue
 
-        for filename in tqdm(filenames):
-            call = "sh" + " " + script_path + " " + filename + " " + preprocess_class_dir
-            os.system(call)
+        filenames = [os.path.join(class_dir, x)
+                for x in os.listdir(class_dir)]
+
+        # preprocess in parallel using all but one cores (n_jobs=-2)
+        Parallel(n_jobs=-2)(delayed(preprocess)(filename=f,
+                                               outdir=preprocess_class_dir,
+                                               tmpdir=TMPDIR,
+                                               reorient_script_path=reorient_script_path,
+                                               robustfov_script_path=robustfov_script_path,
+                                               verbose=0,)
+                            for f in filenames)
+
+    # remove the intermediate preprocessing steps
+    shutil.rmtree(TMPDIR)
+
 
 def load_image(filename):
     img = [nib.load(filename).get_data()]
     img = np.array(img)
     return img
 
+
 def get_classes(encoding_file):
     class_encodings = {}
     with open(encoding_file, 'r') as f:
         content = f.read().split('\n')
     for line in content:
-        if len(line)==0:
+        if len(line) == 0:
             continue
         entry = line.split()
         class_encodings[int(entry[1])] = entry[0]
     return class_encodings
+
 
 def load_data(data_dir, labels_known=True):
     '''
@@ -167,7 +244,7 @@ def load_data(data_dir, labels_known=True):
     # write the mapping of class to a local file in the following space-separated format:
     # CLASS_NAME integer_category
     class_encodings_file = os.path.join(
-        data_dir, "..","..", "..", "class_encodings.txt")
+        data_dir, "..", "..", "..", "class_encodings.txt")
     if not os.path.exists(class_encodings_file):
         with open(class_encodings_file, 'w') as f:
             for i in range(len(class_directories)):

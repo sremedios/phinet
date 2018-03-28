@@ -13,46 +13,59 @@ from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
-from utils.utils import load_data, now, parse_testing_args, preprocess_file, get_classes, load_image
+from utils.utils import load_data, now, parse_args, preprocess, get_classes, load_image
 from keras.models import load_model
 from keras import backend as K
 
+if __name__ == '__main__':
 
-############### DIRECTORIES ###############
+    ############### DIRECTORIES ###############
 
-results = parse_testing_args()
-model = load_model(results.model)
-PREPROCESS_SCRIPT_PATH = os.path.join("utils", "preprocess.sh")
+    results = parse_args("test")
+    model = load_model(results.model)
+    REORIENT_SCRIPT_PATH = os.path.join("utils", "reorient.sh")
+    ROBUSTFOV_SCRIPT_PATH = os.path.join("utils", "robustfov.sh")
+    TMP_DIR = "tmp_intermediate_preprocessing"
+    if not os.path.exists(TMP_DIR):
+        os.makedirs(TMP_DIR)
 
-############### PREPROCESSING ###############
+    ############### PREPROCESSING ###############
 
-new_filename = preprocess_file(results.INFILE, results.OUT_DIR, PREPROCESS_SCRIPT_PATH)
-class_encodings = get_classes(results.encodings_file)
+    new_filename = preprocess(results.INFILE,
+                              results.PREPROCESSED_DIR,
+                              TMP_DIR,
+                              REORIENT_SCRIPT_PATH,
+                              ROBUSTFOV_SCRIPT_PATH,
+                              verbose=0,)
 
-############### PREDICT ###############
-filename = os.path.join(results.OUT_DIR, new_filename)
-X = load_image(filename)
+    class_encodings = get_classes(results.encodings_file)
 
-# make predictions with best weights and save results
-preds = model.predict(X, batch_size=1, verbose=1)
+    ############### PREDICT ###############
 
-############### RECORD RESULTS ###############
+    filename = os.path.join(results.PREPROCESSED_DIR, new_filename)
+    X = load_image(filename)
 
-with open(results.OUTFILE, 'w') as f:
-    pred = preds[0]
-    # find class of prediction via max
-    max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
-    pos = class_encodings[max_idx]
+    # make predictions with best weights and save results
+    preds = model.predict(X, batch_size=1, verbose=1)
 
-    f.write("{:<10} {:<10}".format(os.path.basename(filename), pos))
+    ############### RECORD RESULTS ###############
 
-    # record confidences
-    confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
+    with open(results.OUTFILE, 'w') as f:
+        pred = preds[0]
+        # find class of prediction via max
+        max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
+        pos = class_encodings[max_idx]
 
-    f.write("Confidences: {}\n".format(confidences))
+        f.write("{:<10}\t{:<10}".format(os.path.basename(filename), pos))
 
-if results.clear == "y":
-    shutil.rmtree(results.OUT_DIR)
+        # record confidences
+        confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
 
-# prevent small crash from TensorFlow/Keras session close bug
-K.clear_session()
+        f.write("Confidences: {}\n".format(confidences))
+
+    if results.clear == "y":
+        shutil.rmtree(results.PREPROCESSED_DIR)
+    shutil.rmtree(TMP_DIR)
+
+    # prevent small crash from TensorFlow/Keras session close bug
+    K.clear_session()

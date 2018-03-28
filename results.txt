@@ -1,1 +1,0 @@
-2102504_flair_processed.nii.gz t2        Confidences:  0.00,  0.00, 100.00
