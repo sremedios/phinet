@@ -107,7 +107,7 @@ The three tasks are:
 
 `--datadir`: Path to where the unprocessed data is
 
-`--o`: Path to location where the weights will be saved
+`--weightdir`: Path to location where the weights will be saved
 
 `--numcores`: Number of cores to use in parallel preprocessing:
 - 1 refers to 1 core
@@ -116,7 +116,7 @@ The three tasks are:
 - -2 refers to all but one core
 
 Example usage:
-`python train.py --task modality --traindir data/train/ --o weights/modality/ --numcores -1` 
+`python train.py --task modality --traindir data/train/ --weightdir weights/modality/ --numcores -1` 
 
 ### Classify
 Usage: classify a single image for some task:
@@ -135,14 +135,16 @@ Run `predict.py` with some desired arguments:
 
 `--infile`: path to the file to to classify
 
-`--model`: path to the neural network model to use
+`--model`: path to the neural network model architecture (.JSON) to use
 
-`--o`: path and filename where results are written
+`--weights`: path to the trained model weights (.hdf5) to use
+
+`--results_dst`: path and filename where results are written
 
 `--preprocesseddir`: output directory where final preprocessed image will be placed
 
 Example usage:
-`python predict.py --infile data/test/my_brain.nii.gz --model weights/modality/my_weights.hdf5 --o myresults.txt --preprocesseddir data/test/preprocess`
+`python predict.py --infile data/test/my_brain.nii.gz --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst myresults.txt --preprocesseddir data/test/preprocess`
 
 ### Validate
 Usage: validate the model on some test data and record metrics.
@@ -161,9 +163,11 @@ Run `validate.py` with some desired arguments:
 
 `--datadir`: Path to where the unprocessed data is
 
-`--model`: path to the neural network model to use
+`--model`: path to the neural network model architecture (.JSON) to use
 
-`--o`: path to directory where results are written
+`--weights`: path to the trained model weights (.hdf5) to use
+
+`--results_dst`: path and filename where results are written
 
 `--numcores`: Number of cores to use in parallel preprocessing:
 - 1 refers to 1 core
@@ -172,7 +176,7 @@ Run `validate.py` with some desired arguments:
 - -2 refers to all but one core
 
 Example usage:
-`python validate.py --task modality --datadir data/validation/ --model weights/modality/my_weights.hdf5 --o validation_results/ --numcores -1`
+`python validate.py --task modality --datadir data/validation/ --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst validation_results/ --numcores -1`
 
 ### Image Preprocessing
 Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.
