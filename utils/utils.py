@@ -207,8 +207,9 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
 
 
 def load_image(filename):
-    img = [nib.load(filename).get_data()]
-    img = np.array(img)
+    img = nib.load(filename).get_data()
+    img = np.reshape(img, (1,)+img.shape+(1,))
+
     return img
 
 
@@ -216,7 +217,7 @@ def get_classes(task):
     class_encodings = {}
 
     if task == "modality":
-        class_encodings = {0: "FL",
+        class_encodings = {0: "FL or PD",
                            1: "T1",
                            2: "T2", }
     elif task == "t1-contrast":

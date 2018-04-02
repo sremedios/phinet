@@ -1,0 +1,2 @@
+IXI330-Guys-0881-PD.nii.gz	FL        Confidences: 96.69,  2.55,  0.76
+IXI330-Guys-0881-PD.nii.gz	FL or PD  Confidences: 96.69,  2.55,  0.76
