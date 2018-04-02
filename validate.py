@@ -8,13 +8,14 @@ import os
 import sys
 import time
 import shutil
+import json
 from operator import itemgetter
 from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
 from utils.utils import load_data, now, parse_args, preprocess_dir, get_classes, load_image
-from keras.models import load_model
+from keras.models import load_model, model_from_json
 from keras import backend as K
 
 ############### DIRECTORIES ###############
@@ -40,7 +41,9 @@ if not os.path.exists(PREPROCESSED_DIR):
 
 TASK_DIR = os.path.join(VAL_DIR, task)
 
-model = load_model(results.model)
+with open(results.model) as json_data:
+    model = model_from_json(json.load(json_data))
+model.load_weights(results.weights)
 
 ############### PREPROCESSING ###############
 
@@ -60,7 +63,7 @@ print("Test data loaded.")
 
 ############### PREDICT ###############
 
-PRED_DIR = os.path.join("validation_results")
+PRED_DIR = results.OUTFILE
 if not os.path.exists(PRED_DIR):
     os.makedirs(PRED_DIR)
 BATCH_SIZE = 16
