@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
-from utils.utils import load_data, now, parse_args, preprocess_dir, get_classes, load_image
+from utils.utils import load_data, now, parse_args, preprocess_dir, get_classes, load_image, record_results
 from keras.models import load_model, model_from_json
 from keras import backend as K
 
@@ -63,7 +63,7 @@ print("Test data loaded.")
 
 ############### PREDICT ###############
 
-PRED_DIR = results.OUTFILE
+PRED_DIR = results.OUT_DIR
 if not os.path.exists(PRED_DIR):
     os.makedirs(PRED_DIR)
 BATCH_SIZE = 16
@@ -76,6 +76,22 @@ acc_count = len(set(filenames))
 total = len(set(filenames))
 
 ############### RECORD RESULTS ###############
+for filename, pred, ground_truth in zip(filenames, preds, y):
+    confidences = ";".join("{:.2f}".format(x*100) for x in pred)
+
+    max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
+    max_true, val_true = max(enumerate(ground_truth), key=itemgetter(1))
+    pred_class = class_encodings[max_idx]
+
+    if max_idx != max_true:
+        acc_count -= 1
+
+    record_results(results.OUTFILE, (os.path.basename(filename), pred_class, confidences))
+
+print("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(
+    str(acc_count),
+    str(total),
+    acc_count/total * 100.))
 
 with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
     with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
@@ -97,7 +113,7 @@ with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
                     pos, filename))
                 e.write("{:<10}\t{:<50}".format(pos, filename))
                 e.write("Confidences: {}\n".format(confidences))
-                acc_count -= 1
+                # acc_count -= 1
 
             f.write("Confidences: {}\n".format(confidences))
         f.write("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(

@@ -5,6 +5,7 @@ Data processing script
 '''
 
 import os
+import csv
 import random
 from tqdm import *
 import argparse
@@ -49,7 +50,7 @@ def parse_args(session):
         parser.add_argument('--weights', required=True, action='store', dest='weights',
                             help='Learnt weights (.hdf5) file')
         parser.add_argument('--result_dst', required=True, action='store', dest='OUTFILE',
-                            help='Output filename (e.g. result.txt) to where the results are written')
+                            help='Output filename (e.g. result.csv) to where the results are written')
         parser.add_argument('--classes', required=True, action='store', dest='classes',
                             help='Comma separated list of all classes, CASE-SENSITIVE')
         # parser.add_argument('--preprocesseddir', required=True, action='store',
@@ -67,7 +68,9 @@ def parse_args(session):
                             help='Learnt weights (.hdf5) file')
         parser.add_argument('--classes', required=True, action='store', dest='classes',
                             help='Comma separated list of all classes, CASE-SENSITIVE')
-        parser.add_argument('--result_dst', required=True, action='store', dest='OUTFILE',
+        parser.add_argument('--result_dst', required=True, action='store', dest='OUT_DIR',
+                            help='Output directory where the results are written')
+        parser.add_argument('--result_file', required=True, action='store', dest='OUTFILE',
                             help='Output directory where the results are written')
     else:
         print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
@@ -214,8 +217,10 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
 def load_image(filename):
     img = nib.load(filename).get_data()
     img = np.reshape(img, (1,)+img.shape+(1,))
+    MAX_VAL = 255 # consistent maximum intensity in preprocessing
 
-    return img
+    # linear scaling so all intensities are in [0,1]
+    return np.divide(img, MAX_VAL) 
 
 
 def get_classes(classes):
@@ -282,11 +287,6 @@ def load_data(data_dir, labels_known=True):
 
     num_classes = len(class_directories)
 
-    # point to the newly-processed files
-    class_directories = [os.path.join(data_dir, x)
-                         for x in os.listdir(data_dir)]
-    class_directories.sort()
-
     # set up all_filenames and class_labels to speed up shuffling
     all_filenames = []
     class_labels = {}
@@ -340,8 +340,8 @@ def record_results(csv_filename, args):
         with open(csv_filename, 'w') as csvfile:
             fieldnames = fieldnames
 
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
 
     with open(csv_filename, 'a') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)

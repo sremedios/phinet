@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     ############### MODEL SELECTION ###############
 
-    LR = 1e-4
+    LR = 1e-3
     LOAD_WEIGHTS = False
 
     if not os.path.exists(WEIGHT_DIR):

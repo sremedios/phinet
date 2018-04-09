@@ -75,8 +75,10 @@ if __name__ == '__main__':
 
     ############### RECORD RESULTS ###############
 
-    confidences = " ".join(["{:.2f}".format(x*100) for x in preds[0]])
-    record_results(results.OUTFILE, (filename, preds[0], confidences)
+    confidences = ";".join(["{:.2f}".format(x*100) for x in preds[0]])
+    max_idx, max_val = max(enumerate(preds[0]), key=itemgetter(1))
+    pred_class = class_encodings[max_idx]
+    record_results(results.OUTFILE, (os.basename(filename), pred_class, confidences)
     """
     with open(results.OUTFILE, 'a') as f:
         pred = preds[0]
