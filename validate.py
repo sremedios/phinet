@@ -52,7 +52,7 @@ preprocess_dir(TASK_DIR, PREPROCESSED_DIR,
                results.numcores)
 
 # get class encodings
-class_encodings = get_classes(task)
+class_encodings = get_classes(results.classes.split(','))
 
 ############### DATA IMPORT ###############
 

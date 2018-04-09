@@ -17,7 +17,7 @@ def phinet(n_classes, n_channels=1, learning_rate=1e-3):
     inputs = Input(shape=(None,None,None,n_channels))
 
     x = Conv3D(8, (3,3,3), strides=(2,2,2), padding='same')(inputs)
-    x = MaxPooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(x)
+    x = AveragePooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(x)
 
     for _ in range(3):
         x = Conv3D(8, (3,3,3), strides=(1,1,1), padding='same')(x)
@@ -30,7 +30,7 @@ def phinet(n_classes, n_channels=1, learning_rate=1e-3):
 
     # this block will pool a handful of times to get the "big picture" 
     y = AveragePooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(inputs)
-    y = MaxPooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(y)
+    y = AveragePooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(y)
     y = Conv3D(8, (3,3,3), strides=(1,1,1), padding='same')(y)
 
     # this layer will preserve original signal

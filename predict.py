@@ -63,7 +63,7 @@ if __name__ == '__main__':
                               ROBUSTFOV_SCRIPT_PATH,
                               verbose=0,)
 
-    class_encodings = get_classes(task=task)
+    class_encodings = get_classes(results.classes.split(','))
 
     ############### PREDICT ###############
 
@@ -75,6 +75,9 @@ if __name__ == '__main__':
 
     ############### RECORD RESULTS ###############
 
+    confidences = " ".join(["{:.2f}".format(x*100) for x in preds[0]])
+    record_results(results.OUTFILE, (filename, preds[0], confidences)
+    """
     with open(results.OUTFILE, 'a') as f:
         pred = preds[0]
         # find class of prediction via max
@@ -89,6 +92,7 @@ if __name__ == '__main__':
 
         f.write("Confidences: {}\n".format(confidences))
         print("Confidences: {}\n".format(confidences))
+    """
 
 
     if results.clear == "y":

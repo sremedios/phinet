@@ -20,6 +20,7 @@ from sklearn.utils import shuffle
 
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 
+
 def parse_args(session):
     '''
     Parse command line arguments.
@@ -49,6 +50,8 @@ def parse_args(session):
                             help='Learnt weights (.hdf5) file')
         parser.add_argument('--result_dst', required=True, action='store', dest='OUTFILE',
                             help='Output filename (e.g. result.txt) to where the results are written')
+        parser.add_argument('--classes', required=True, action='store', dest='classes',
+                            help='Comma separated list of all classes, CASE-SENSITIVE')
         # parser.add_argument('--preprocesseddir', required=True, action='store',
         #                    dest='PREPROCESSED_DIR',
         #                    help='Output directory where final preprocessed images are placed ')
@@ -62,6 +65,8 @@ def parse_args(session):
                             help='Model Architecture (.json) file')
         parser.add_argument('--weights', required=True, action='store', dest='weights',
                             help='Learnt weights (.hdf5) file')
+        parser.add_argument('--classes', required=True, action='store', dest='classes',
+                            help='Comma separated list of all classes, CASE-SENSITIVE')
         parser.add_argument('--result_dst', required=True, action='store', dest='OUTFILE',
                             help='Output directory where the results are written')
     else:
@@ -112,7 +117,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     os.system(call)
 
     # reorient to RAI. Not necessary
-    #call = reorient_script_path + " " + \
+    # call = reorient_script_path + " " + \
     #    os.path.join(tmpdir, basename) + " " + "RAI"
     infile = os.path.join(tmpdir, basename)
     outfile = os.path.join(tmpdir, "reorient_" + basename)
@@ -120,7 +125,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     if verbose == 0:
         call = call + " " + ">/dev/null"
     os.system(call)
-    
+
     # robustfov to make sure neck isn't included
     infile = os.path.join(tmpdir, "reorient_" + basename)
     outfile = os.path.join(tmpdir, "robust_" + basename)
@@ -182,7 +187,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
         if not os.path.exists(preprocess_class_dir):
             os.makedirs(preprocess_class_dir)
 
-        if len(os.listdir(class_dir)) == len(os.listdir(preprocess_class_dir)):
+        if len(os.listdir(class_dir)) <= len(os.listdir(preprocess_class_dir)):
             print("Already preprocessed.")
             continue
 
@@ -213,22 +218,18 @@ def load_image(filename):
     return img
 
 
-def get_classes(task):
-    class_encodings = {}
+def get_classes(classes):
+    '''
+    Params:
+        - classes: list of strings
+    Returns:
+        - class_encodings: dictionary mapping an integer to a class_string
+    '''
+    class_list = classes
+    class_list.sort()
 
-    if task == "modality":
-        class_encodings = {0: "FL or PD",
-                           1: "T1",
-                           2: "T2", }
-    elif task == "t1-contrast":
-        class_encodings = {0: "T1 Post",
-                           1: "T1 Pre", }
-    elif task == "fl-contrast":
-        class_encodings = {0: "FL Post",
-                           1: "FL Pre", }
-    else:
-        print("Invalid task: must be one of \"modality\", \"t1-contrast\", \"fl-contrast\"")
-        sys.exit()
+    class_encodings = {x:class_list[x] for x in range(len(class_list))}
+
 
     return class_encodings
 
@@ -278,7 +279,6 @@ def load_data(data_dir, labels_known=True):
     class_directories = [os.path.join(data_dir, x)
                          for x in os.listdir(data_dir)]
     class_directories.sort()
-    
 
     num_classes = len(class_directories)
 
@@ -299,28 +299,57 @@ def load_data(data_dir, labels_known=True):
             all_filenames.append(filepath)
 
     img_shape = nib.load(all_filenames[0]).get_data().shape
-    data = np.empty(shape=((len(all_filenames),) + img_shape + (1,)), dtype=np.uint8) 
+    data = np.empty(shape=((len(all_filenames),) +
+                           img_shape + (1,)), dtype=np.uint8)
 
     # shuffle data
-    all_filenames = shuffle(all_filenames)
-        
-    data_idx = 0 # pointer to index in data
+    all_filenames = shuffle(all_filenames, random_state=0)
+
+    data_idx = 0  # pointer to index in data
 
     for f in tqdm(all_filenames):
         img = nib.load(f).get_data()
         img = np.asarray(img, dtype=np.uint8)
-        
+
         # place this image in its spot in the data array
         data[data_idx] = np.reshape(img, (1,)+img.shape+(1,))
         data_idx += 1
 
         cur_label = f.split(os.sep)[-2]
-        labels.append(to_categorical(class_labels[cur_label], num_classes=num_classes))
+        labels.append(to_categorical(
+            class_labels[cur_label], num_classes=num_classes))
 
     labels = np.array(labels, dtype=np.uint8)
     print(data.shape)
     print(labels.shape)
     return data, labels, all_filenames
+
+
+def record_results(csv_filename, args):
+
+    fieldnames = [
+        "filename",
+        "prediction",
+        "confidences",
+    ]
+
+    filename, prediction, confidences = args
+
+    # write to file the two sums
+    if not os.path.exists(csv_filename):
+        with open(csv_filename, 'w') as csvfile:
+            fieldnames = fieldnames
+
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+    with open(csv_filename, 'a') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writerow({
+            "filename": filename,
+            "prediction": prediction,
+            "confidences": confidences,
+        })
 
 
 def now():

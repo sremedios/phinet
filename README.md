@@ -137,14 +137,16 @@ Run `predict.py` with some desired arguments:
 
 `--model`: path to the neural network model architecture (.JSON) to use
 
+`--classes`: comma-separated list of classes, case-sensitive
+
 `--weights`: path to the trained model weights (.hdf5) to use
 
-`--results_dst`: path and filename where results are written
+`--results_dst`: path and filename (.txt) where results are written
 
 `--preprocesseddir`: output directory where final preprocessed image will be placed
 
 Example usage:
-`python predict.py --infile data/test/my_brain.nii.gz --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst myresults.txt --preprocesseddir data/test/preprocess`
+`python predict.py --infile data/test/my_brain.nii.gz --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst myresults.txt --preprocesseddir data/test/preprocess --classes PD,T1,T2`
 
 ### Validate
 Usage: validate the model on some test data and record metrics.
@@ -165,9 +167,11 @@ Run `validate.py` with some desired arguments:
 
 `--model`: path to the neural network model architecture (.JSON) to use
 
+`--classes`: comma-separated list of classes, case-sensitive
+
 `--weights`: path to the trained model weights (.hdf5) to use
 
-`--results_dst`: path and filename where results are written
+`--results_dst`: path to directory where results are written
 
 `--numcores`: Number of cores to use in parallel preprocessing:
 - 1 refers to 1 core
@@ -176,7 +180,7 @@ Run `validate.py` with some desired arguments:
 - -2 refers to all but one core
 
 Example usage:
-`python validate.py --task modality --datadir data/validation/ --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst validation_results/ --numcores -1`
+`python validate.py --task modality --datadir data/validation/ --model phinet.json --weights weights/modality/my_weights.hdf5 --results_dst validation_results/ --numcores -1 --classes PD,T1,T2`
 
 ### Image Preprocessing
 Here are all the preprocessing steps which are automatically executed in `train.py`, `validate.py`, and `test.py`.

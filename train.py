@@ -121,7 +121,7 @@ if __name__ == '__main__':
     # The code continues even if the validation/training accuracy reaches 1, but loss is not.
     # For a classification task, accuracy is more important. For a regression task, loss
     # is important
-    es = EarlyStopping(monitor='acc', min_delta=1e-8, patience=10)
+    es = EarlyStopping(monitor='acc', min_delta=1e-8, patience=20)
     callbacks_list.append(es)
 
     ############### TRAINING ###############
