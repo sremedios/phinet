@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
-from utils.utils import load_data, now, parse_args, preprocess, get_classes, load_image
+from utils.utils import load_data, now, parse_args, preprocess, get_classes, load_image, record_results
 from keras.models import load_model, model_from_json
 from keras import backend as K
 import tempfile
@@ -48,13 +48,12 @@ if __name__ == '__main__':
     TMP_DIR=tempfile.mkdtemp()
     results.PREPROCESSED_DIR=tempfile.mkdtemp()
 
-    #TMP_DIR = os.path.join(results.PREPROCESSED_DIR, "tmp_intermediate_preprocessing")
-    #TMP_DIR = os.path.join(results.PREPROCESSED_DIR, X) # get a temporary directory, rather than fixed.
     if not os.path.exists(TMP_DIR):
         os.makedirs(TMP_DIR)
-    task = results.task.lower()
 
     ############### PREPROCESSING ###############
+
+    classes = results.classes.replace(" ","").split(',')
 
     new_filename = preprocess(results.INFILE,
                               results.PREPROCESSED_DIR,
@@ -63,7 +62,7 @@ if __name__ == '__main__':
                               ROBUSTFOV_SCRIPT_PATH,
                               verbose=0,)
 
-    class_encodings = get_classes(results.classes.split(','))
+    class_encodings = get_classes(classes)
 
     ############### PREDICT ###############
 
@@ -78,24 +77,7 @@ if __name__ == '__main__':
     confidences = ";".join(["{:.2f}".format(x*100) for x in preds[0]])
     max_idx, max_val = max(enumerate(preds[0]), key=itemgetter(1))
     pred_class = class_encodings[max_idx]
-    record_results(results.OUTFILE, (os.basename(filename), pred_class, confidences)
-    """
-    with open(results.OUTFILE, 'a') as f:
-        pred = preds[0]
-        # find class of prediction via max
-        max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
-        pos = class_encodings[max_idx]
-
-        f.write("{:<10}\t{:<10}".format(os.path.basename(filename), pos))
-        print("{:<10}\t{:<10}".format(os.path.basename(filename), pos))
-
-        # record confidences
-        confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
-
-        f.write("Confidences: {}\n".format(confidences))
-        print("Confidences: {}\n".format(confidences))
-    """
-
+    record_results(results.OUTFILE, (os.path.basename(filename), None, pred_class, confidences))
 
     if results.clear == "y":
         shutil.rmtree(results.PREPROCESSED_DIR)

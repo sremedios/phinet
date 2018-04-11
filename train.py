@@ -36,45 +36,34 @@ if __name__ == '__main__':
     )
     REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
     ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
+
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
-
-    task = results.task.lower()
-    PREPROCESSED_DIR = os.path.join(WEIGHT_DIR, "preprocess", task)
-    WEIGHT_DIR = os.path.join(WEIGHT_DIR, task)
-
-    #PREPROCESSED_DIR = os.path.join(TRAIN_DIR, "preprocess", task)
-    # All temporary results must be written in the output directory
+    PREPROCESSED_DIR = os.path.join(WEIGHT_DIR, "preprocess")
 
     if not os.path.exists(PREPROCESSED_DIR):
         os.makedirs(PREPROCESSED_DIR)
 
-    if not task in ["modality", "t1-contrast", "fl-contrast"]:
-        print("Invalid task")
-        sys.exit()
-
-    TASK_DIR = os.path.join(TRAIN_DIR, task)
-
-
     ############### PREPROCESSING ###############
 
-    preprocess_dir(TASK_DIR, PREPROCESSED_DIR,
+    classes = results.classes.replace(" ","").split(',')
+
+    preprocess_dir(TRAIN_DIR, PREPROCESSED_DIR,
                    REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
+                   classes,
                    results.numcores)
 
     ############### DATA IMPORT ###############
 
-    X, y, filenames = load_data(PREPROCESSED_DIR)
-    #X, y = shuffle(X, y, random_state=0)
+    X, y, filenames, num_classes, img_shape = load_data(PREPROCESSED_DIR, classes)
 
-    num_classes = len(y[0])
-
-    img_shape = X[0].shape
     print("Finished data processing")
 
     ############### MODEL SELECTION ###############
 
     LR = 1e-3
     LOAD_WEIGHTS = False
+    MODEL_NAME = "phinet_model_" + "-".join(results.classes.split(","))
+    MODEL_PATH = os.path.join(WEIGHT_DIR, MODEL_NAME+".json")
 
     if not os.path.exists(WEIGHT_DIR):
         os.makedirs(WEIGHT_DIR)
@@ -83,7 +72,7 @@ if __name__ == '__main__':
         weight_files = os.listdir(WEIGHT_DIR)
         weight_files.sort()
         best_weights = os.path.join(WEIGHT_DIR, weight_files[-1])
-        with open("phinet.json") as json_data:
+        with open(MODEL_PATH) as json_data:
             model = model_from_json(json.load(json_data))
         model.load_weights(best_weights)
     else:
@@ -91,7 +80,7 @@ if __name__ == '__main__':
 
     # save model architecture to file
     json_string = model.to_json()
-    with open("phinet.json",'w') as f:
+    with open(MODEL_PATH,'w') as f:
         json.dump(json_string, f)
 
     ############### CALLBACKS ###############
@@ -99,8 +88,8 @@ if __name__ == '__main__':
     callbacks_list = []
 
     # Checkpoint
-    fpath = os.path.join(
-        WEIGHT_DIR, task+"_"+now()+"-epoch-{epoch:04d}-val_acc-{val_acc:.4f}.hdf5")
+    WEIGHT_NAME = MODEL_NAME.replace("model","weights") + now()+"-epoch-{epoch:04d}-val_acc-{val_acc:.4f}.hdf5"
+    fpath = os.path.join(WEIGHT_DIR, WEIGHT_NAME)
     checkpoint = ModelCheckpoint(fpath,
                                  monitor='val_acc',
                                  verbose=1,

@@ -39,7 +39,7 @@ def parse_args(session):
                             help='Where the initial unprocessed data is')
         parser.add_argument('--weightdir', required=True, action='store', dest='OUT_DIR',
                             help='Output directory where the trained models are written')
-        parser.add_argument('--numcores', required=False, action='store', dest='numcores',
+        parser.add_argument('--numcores', required=True, action='store', dest='numcores',
                             default='1', type=int,
                             help='Number of cores to preprocess in parallel with')
     elif session == "test":
@@ -51,36 +51,26 @@ def parse_args(session):
                             help='Learnt weights (.hdf5) file')
         parser.add_argument('--result_dst', required=True, action='store', dest='OUTFILE',
                             help='Output filename (e.g. result.csv) to where the results are written')
-        parser.add_argument('--classes', required=True, action='store', dest='classes',
-                            help='Comma separated list of all classes, CASE-SENSITIVE')
-        # parser.add_argument('--preprocesseddir', required=True, action='store',
-        #                    dest='PREPROCESSED_DIR',
-        #                    help='Output directory where final preprocessed images are placed ')
     elif session == "validate":
-        parser.add_argument('--numcores', required=False, action='store', dest='numcores',
-                            default='1', type=int,
-                            help='Number of cores to preprocess in parallel with')
         parser.add_argument('--datadir', required=True, action='store', dest='VAL_DIR',
                             help='Where the initial unprocessed data is')
         parser.add_argument('--model', required=True, action='store', dest='model',
                             help='Model Architecture (.json) file')
         parser.add_argument('--weights', required=True, action='store', dest='weights',
                             help='Learnt weights (.hdf5) file')
-        parser.add_argument('--classes', required=True, action='store', dest='classes',
-                            help='Comma separated list of all classes, CASE-SENSITIVE')
         parser.add_argument('--result_dst', required=True, action='store', dest='OUT_DIR',
                             help='Output directory where the results are written')
         parser.add_argument('--result_file', required=True, action='store', dest='OUTFILE',
                             help='Output directory where the results are written')
+        parser.add_argument('--numcores', required=True, action='store', dest='numcores',
+                            default='1', type=int,
+                            help='Number of cores to preprocess in parallel with')
     else:
         print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
         sys.exit()
 
-    parser.add_argument('--task', required=True, action='store', dest='task',
-                        help='Type of task: modality, T1-contrast, FL-contrast, '
-                             'modality indicates classification between several pre-contrast images, such as '
-                             'T1 vs T2 vs FLAIR. T1-contrast indicates classification between pre-contrast T1 '
-                             'and post-contrast T1. Similar comparison is for FL-contrast.')
+    parser.add_argument('--classes', required=True, action='store', dest='classes',
+                        help='Comma separated list of all classes, CASE-SENSITIVE')
     parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
                         help='For a multi-GPU system, the trainng can be run on different GPUs.'
                         'Use a GPU id (single number), eg: 1 or 2 to run on that particular GPU.'
@@ -161,7 +151,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     return os.listdir(outdir)[0]
 
 
-def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, ncores):
+def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, classes, ncores):
     '''
     Preprocesses all files in train_dir into preprocess_dir using prepreocess.sh
 
@@ -177,11 +167,20 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
     class_directories = [os.path.join(train_dir, x)
                          for x in os.listdir(train_dir)]
     class_directories.sort()
-    num_classes = len(class_directories)
+
+    print(classes)
+    num_classes = len(classes)
 
     # preprocess all images
     print("*** PREPROCESSING ***")
     for class_dir in tqdm(class_directories):
+
+        if not os.path.basename(class_dir) in classes:
+            print("{} not in specified {}; omitting.".format(
+                os.path.basename(class_dir),
+                classes))
+            continue
+
         if not os.path.exists(TMPDIR):
             os.makedirs(TMPDIR)
         preprocess_class_dir = os.path.join(
@@ -217,10 +216,10 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
 def load_image(filename):
     img = nib.load(filename).get_data()
     img = np.reshape(img, (1,)+img.shape+(1,))
-    MAX_VAL = 255 # consistent maximum intensity in preprocessing
+    MAX_VAL = 255  # consistent maximum intensity in preprocessing
 
     # linear scaling so all intensities are in [0,1]
-    return np.divide(img, MAX_VAL) 
+    return np.divide(img, MAX_VAL)
 
 
 def get_classes(classes):
@@ -233,13 +232,12 @@ def get_classes(classes):
     class_list = classes
     class_list.sort()
 
-    class_encodings = {x:class_list[x] for x in range(len(class_list))}
-
+    class_encodings = {x: class_list[x] for x in range(len(class_list))}
 
     return class_encodings
 
 
-def load_data(data_dir, labels_known=True):
+def load_data(data_dir, classes=None):
     '''
     Loads in datasets and returns the labeled preprocessed patches for use in the model.
 
@@ -256,13 +254,15 @@ def load_data(data_dir, labels_known=True):
         - data: list of 3D ndarrays, the patches of images to use for training
         - labels: list of 1D ndarrays, one-hot encoding corresponding to classes
         - all_filenames: list of strings, corresponding filenames for use in validation/test
+        - num_classes: integer, number of classes
+        - img_shape: ndarray, shape of an individual image
     '''
 
     labels = []
 
     #################### CLASSIFICATION OF UNKNOWN DATA ####################
 
-    if not labels_known:
+    if classes is None:
         all_filenames = []
         filenames = [x for x in os.listdir(data_dir)
                      if not os.path.isdir(os.path.join(data_dir, x))]
@@ -285,13 +285,21 @@ def load_data(data_dir, labels_known=True):
                          for x in os.listdir(data_dir)]
     class_directories.sort()
 
-    num_classes = len(class_directories)
+    print(classes)
+    num_classes = len(classes)
 
     # set up all_filenames and class_labels to speed up shuffling
     all_filenames = []
     class_labels = {}
     i = 0
     for class_directory in class_directories:
+
+        if not os.path.basename(class_directory) in classes:
+            print("{} not in {}; omitting.".format(
+                os.path.basename(class_directory),
+                classes))
+            continue
+
         class_labels[os.path.basename(class_directory)] = i
         i += 1
         for filename in os.listdir(class_directory):
@@ -322,38 +330,66 @@ def load_data(data_dir, labels_known=True):
     labels = np.array(labels, dtype=np.uint8)
     print(data.shape)
     print(labels.shape)
-    return data, labels, all_filenames
+    return data, labels, all_filenames, num_classes, data[0].shape
 
 
 def record_results(csv_filename, args):
 
-    fieldnames = [
-        "filename",
-        "prediction",
-        "confidences",
-    ]
+    filename, ground_truth, prediction, confidences = args
 
-    filename, prediction, confidences = args
+    if ground_truth is not None:
+        fieldnames = [
+            "filename",
+            "ground_truth",
+            "prediction",
+            "confidences",
+        ]
 
-    # write to file the two sums
-    if not os.path.exists(csv_filename):
-        with open(csv_filename, 'w') as csvfile:
-            fieldnames = fieldnames
 
+        # write to file the two sums
+        if not os.path.exists(csv_filename):
+            with open(csv_filename, 'w') as csvfile:
+                fieldnames = fieldnames
+
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+
+        with open(csv_filename, 'a') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
+            writer.writerow({
+                "filename": filename,
+                "ground_truth": ground_truth,
+                "prediction": prediction,
+                "confidences": confidences,
+            })
+    else:
+        fieldnames = [
+            "filename",
+            "prediction",
+            "confidences",
+        ]
 
-    with open(csv_filename, 'a') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writerow({
-            "filename": filename,
-            "prediction": prediction,
-            "confidences": confidences,
-        })
+
+        # write to file the two sums
+        if not os.path.exists(csv_filename):
+            with open(csv_filename, 'w') as csvfile:
+                fieldnames = fieldnames
+
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+
+        with open(csv_filename, 'a') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writerow({
+                "filename": filename,
+                "prediction": prediction,
+                "confidences": confidences,
+            })
+
 
 
 def now():
     '''
     Returns a string format of current time, for use in checkpoint filenaming
     '''
-    return datetime.utcnow().strftime("%Y%m%d_%H:%M:%S")
+    return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
