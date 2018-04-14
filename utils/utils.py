@@ -148,7 +148,12 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     call = "rm -f " + os.path.join(tmpdir, "robust_" + basename)
     os.system(call)
 
-    return os.listdir(outdir)[0]
+    all_filenames = os.listdir(outdir)
+    for f in all_filenames:
+        if os.path.basename(f) == basename:
+            new_name = f
+
+    return new_name
 
 
 def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, classes, ncores):
