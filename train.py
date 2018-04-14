@@ -88,7 +88,7 @@ if __name__ == '__main__':
     callbacks_list = []
 
     # Checkpoint
-    WEIGHT_NAME = MODEL_NAME.replace("model","weights") + now()+"-epoch-{epoch:04d}-val_acc-{val_acc:.4f}.hdf5"
+    WEIGHT_NAME = MODEL_NAME.replace("model","weights") + "_" + now()+"-epoch-{epoch:04d}-val_acc-{val_acc:.4f}.hdf5"
     fpath = os.path.join(WEIGHT_DIR, WEIGHT_NAME)
     checkpoint = ModelCheckpoint(fpath,
                                  monitor='val_acc',
