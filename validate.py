@@ -17,6 +17,7 @@ from models.phinet import phinet
 from utils.utils import load_data, now, parse_args, preprocess_dir, get_classes, load_image, record_results
 from keras.models import load_model, model_from_json
 from keras import backend as K
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == '__main__':
     ############### DIRECTORIES ###############
@@ -118,7 +119,6 @@ if __name__ == '__main__':
                         pos, filename))
                     e.write("{:<10}\t{:<50}".format(pos, filename))
                     e.write("Confidences: {}\n".format(confidences))
-                    # acc_count -= 1
 
                 f.write("Confidences: {}\n".format(confidences))
             f.write("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(

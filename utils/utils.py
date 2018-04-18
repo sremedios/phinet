@@ -106,7 +106,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     call = "mri_convert -odt uchar --crop 0 0 0 -c" + " " + filename + \
         " " + os.path.join(tmpdir, basename)
     if verbose == 0:
-        call = call + " " + ">/dev/null"
+        call = call + " " + ">/dev/null  2>&1"
     os.system(call)
 
     # reorient to RAI. Not necessary
@@ -116,7 +116,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     outfile = os.path.join(tmpdir, "reorient_" + basename)
     call = "3dresample -orient RAI -inset " + infile + " -prefix " + outfile
     if verbose == 0:
-        call = call + " " + ">/dev/null"
+        call = call + " " + ">/dev/null  2>&1 "
     os.system(call)
 
     # robustfov to make sure neck isn't included
@@ -125,7 +125,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     call = robustfov_script_path + " " + infile + " " +\
         outfile + " " + "160"
     if verbose == 0:
-        call = call + " " + ">/dev/null"
+        call = call + " " + ">/dev/null  2>&1"
     os.system(call)
 
     # 3dWarp to make images AC-PC aligned. Not necessary.  Ideally images should be
@@ -221,10 +221,11 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
 def load_image(filename):
     img = nib.load(filename).get_data()
     img = np.reshape(img, (1,)+img.shape+(1,))
-    MAX_VAL = 255  # consistent maximum intensity in preprocessing
+    #MAX_VAL = 255  # consistent maximum intensity in preprocessing
 
     # linear scaling so all intensities are in [0,1]
-    return np.divide(img, MAX_VAL)
+    #return np.divide(img, MAX_VAL)
+    return  img
 
 
 def get_classes(classes):

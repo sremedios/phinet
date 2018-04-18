@@ -74,10 +74,21 @@ if __name__ == '__main__':
 
     ############### RECORD RESULTS ###############
 
-    confidences = ";".join(["{:.2f}".format(x*100) for x in preds[0]])
+    confidences = ",".join(["{:.2f}".format(x*100) for x in preds[0]])
     max_idx, max_val = max(enumerate(preds[0]), key=itemgetter(1))
     pred_class = class_encodings[max_idx]
-    record_results(results.OUTFILE, (os.path.basename(filename), None, pred_class, confidences))
+    classids = ",".join(["Prob({})".format(x) for x in classes])
+    print(classids)
+    print(confidences)
+    print(pred_class)
+
+    if not os.path.exists(results.OUTFILE):
+        with open(results.OUTFILE, 'w') as csvfile:
+            csvfile.write("filename,prediction,%s\n" % classids )
+
+    x = os.path.basename(filename) + "," + pred_class + "," + confidences
+    with open(results.OUTFILE, 'a') as csvfile:
+        csvfile.write("%s\n" % x)
 
     if results.clear == "y":
         shutil.rmtree(results.PREPROCESSED_DIR)
