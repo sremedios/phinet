@@ -10,83 +10,50 @@ import shutil
 from joblib import Parallel, delayed
 import sys
 
+from .mri_convert import mri_convert
+from .robust_fov import robust_fov
+
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 
-def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_path, verbose=1):
+def preprocess(filename, preprocess_dir, verbose=1, remove_tmp_files=True):
     '''
     Preprocess a single file.
     Can be used in parallel
 
     Params:
         - filename: string, path to file to preprocess
-        - outdir: string, path to destination directory to save preprocessed image
-        - tmpdir: string, path to tmp directory for intermediate steps
-        - reorient_script_path: string, path to bash script to reorient image
-        - robustfov_script_path: string, path to bash script to robustfov image
+        - preprocess_dir: string, path to destination directory to save preprocessed image
         - verbose: int, if 0, surpress all output. If 1, display all output
-
-    Returns:
-        - string, name of new file in its new location
     '''
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    MRI_CONVERT_DIR = os.path.join(preprocess_dir, "mri_convert")
+    REORIENT_DIR = os.path.join(preprocess_dir, "reorient")
+    ROBUST_FOV_DIR = os.path.join(preprocess_dir, "robust_fov")
+    WARP_3D_DIR = os.path.join(preprocess_dir, "warp3d")
 
-    basename = os.path.basename(filename)
+    for d in [MRI_CONVERT_DIR, REORIENT_DIR, ROBUST_FOV_DIR, WARP_3D_DIR]:
+        if not os.path.exists(d):
+            os.makedirs(d)
 
-    # convert image to 256^3 1mm^3 coronal images with intensity range [0,255]
-    call = "mri_convert -odt uchar --crop 0 0 0 -c" + " " + filename + \
-        " " + os.path.join(tmpdir, basename)
-    if verbose == 0:
-        call = call + " " + ">/dev/null  2>&1"
-    os.system(call)
-
-    # reorient to RAI. Not necessary
-    # call = reorient_script_path + " " + \
-    #    os.path.join(tmpdir, basename) + " " + "RAI"
-    infile = os.path.join(tmpdir, basename)
-    outfile = os.path.join(tmpdir, "reorient_" + basename)
-    call = "3dresample -orient RAI -inset " + infile + " -prefix " + outfile
-    if verbose == 0:
-        call = call + " " + ">/dev/null  2>&1 "
-    os.system(call)
-
-    # robustfov to make sure neck isn't included
-    infile = os.path.join(tmpdir, "reorient_" + basename)
-    outfile = os.path.join(tmpdir, "robust_" + basename)
-    call = robustfov_script_path + " " + infile + " " +\
-        outfile + " " + "160"
-    if verbose == 0:
-        call = call + " " + ">/dev/null  2>&1"
-    os.system(call)
-
-    # 3dWarp to make images AC-PC aligned. Not necessary.  Ideally images should be
-    # rigid registered to some template for uniformity, but rigid registration is slow
-    # This is a faster way.  -newgrid 2 will resample the image to 2mm^3 resolution
-    infile = os.path.join(tmpdir, "robust_" + basename)
-    outfile = os.path.join(outdir, basename)
-    call = "3dWarp -deoblique -NN -newgrid 2 -prefix" + " " + outfile + " " + infile
-    if verbose == 0:
-        call = call + " " + ">/dev/null 2>&1"
-    os.system(call)
+    mri_convert(filename, src_dir, MRI_CONVERT_DIR)
+    reorient(filename, MRI_CONVERT_DIR, REORIENT_DIR)
+    robust_fov(filename, REORIENT_DIR, ROBUST_FOV_DIR)
+    warp_3d(filename, ROBUST_FOV_DIR, WARP_3D_DIR)
 
     # since the intensities are already [0,255], change the file from float to uchar to save space
     call = "fslmaths " + outfile + " " + outfile + " -odt char"
     os.system(call)
 
-    # delete temporary files to save space, otherwise the temp directory takes more than 100GB
-    call = "rm -f " + os.path.join(tmpdir, basename)
-    os.system(call)
-    call = "rm -f " + os.path.join(tmpdir, "robust_" + basename)
-    os.system(call)
+    # move final preprocess step into the preprocessing directory
+    shutil.move(os.path.join(filename, WARP_3D_DIR), os.path.join(filename, preprocess_dir))
 
-    all_filenames = os.listdir(outdir)
-    for f in all_filenames:
-        if os.path.basename(f) == basename:
-            new_name = f
-
-    return new_name
+    # remove the intermediate steps from each of the preprocessing steps
+    if remove_tmp_files:
+        for d in [MRI_CONVERT_DIR, REORIENT_DIR, ROBUST_FOV_DIR, WARP_3D_DIR]:
+            tmp_file = os.path.join(d, filename)
+            os.remove(tmp_file)
 
 
+# TODO: refactor this completely
 def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, classes, ncores):
     '''
     Preprocesses all files in train_dir into preprocess_dir using prepreocess.sh
