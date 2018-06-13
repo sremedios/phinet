@@ -14,7 +14,11 @@ from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
-from utils.utils import load_data, now, parse_args, preprocess_dir, get_classes, load_image, record_results
+
+from utils.load_data import load_data, load_image
+from utils.utils import now, parse_args, get_classes, record_results
+from utils.preprocess import preprocess_dir
+
 from keras.models import load_model, model_from_json
 from keras import backend as K
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'

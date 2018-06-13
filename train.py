@@ -14,7 +14,11 @@ from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau, Ear
 from keras import backend as K
 from keras.models import model_from_json
 from models.phinet import phinet
-from utils.utils import load_data, preprocess_dir, parse_args, now
+
+from utils.load_data import load_data
+from utils.preprocess import preprocess_dir
+from utils.utils import parse_args, now
+
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
