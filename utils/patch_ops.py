@@ -10,8 +10,10 @@ from tqdm import *
 import numpy as np
 import nibabel as nib
 from keras.utils import to_categorical
+from .reorient import orient
+from .robustfov import robust_fov
 
-def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True):
+def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True, num_patches=100):
     '''
     Loads in datasets and returns the labeled preprocessed patches for use in the model.
 
@@ -51,8 +53,8 @@ def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True):
 
         for f in filenames:
             img = nib.load(os.path.join(robustfov_dir, f)).get_data()
-            normalized_img = normalize_data(img)
-            patches = get_patches(normalized_img, patch_size)
+            #normalized_img = normalize_data(img)
+            patches = get_patches(img, patch_size, num_patches)
 
             for patch in tqdm(patches):
                 data.append(patch)
@@ -80,29 +82,17 @@ def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True):
             for i in range(len(class_directories)):
                 f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
 
-    print("*** PREPROCESSING ***")
-    # preprocess all images
-    for class_dir in tqdm(class_directories):
-        orient_dir = orient(class_dir, preprocess_dir, os.path.basename(class_dir))
-        robustfov_dir = robust_fov(orient_dir, preprocess_dir, os.path.basename(class_dir))
-        
-
-    # point to the newly-processed files
-    class_directories = [os.path.join(robustfov_dir, x)
-                         for x in os.listdir(robustfov_dir)]
-    class_directories.sort()
-
     print("*** GATHERING PATCHES ***")
     for i in range(len(class_directories)):
         filenames = os.listdir(class_directories[i])
         filenames.sort()
 
-        for f in filenames:
+        for f in tqdm(filenames):
             img = nib.load(os.path.join(class_directories[i], f)).get_data()
-            normalized_img = normalize_data(img)
-            patches = get_patches(normalized_img, patch_size)
+            #normalized_img = normalize_data(img)
+            patches = get_patches(img, patch_size, num_patches)
 
-            for patch in tqdm(patches):
+            for patch in patches:
                 data.append(patch)
                 labels.append(to_categorical(i, num_classes=num_classes))
                 all_filenames.append(f)
@@ -110,12 +100,13 @@ def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True):
     print("A total of {} patches collected.".format(len(data)))
 
     data = np.array(data, dtype=np.float16)
+    data = np.reshape(data, (data.shape + (1,))) 
     labels = np.array(labels, dtype=np.float16)
 
     return data, labels, all_filenames
 
 
-def get_patches(img, patch_size, num_patches=1000):
+def get_patches(img, patch_size, num_patches=100):
     '''
     Gets num_patches 3D patches of the input image for classification.
 
@@ -172,5 +163,3 @@ def get_patches(img, patch_size, num_patches=1000):
         patches.append(patch)
 
     return patches
-
-
