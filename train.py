@@ -38,7 +38,7 @@ if __name__ == '__main__':
     ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
 
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
-    PREPROCESSED_DIR = os.path.join(WEIGHT_DIR, "preprocess")
+    PREPROCESSED_DIR = os.path.join(TRAIN_DIR, "preprocess")
 
     if not os.path.exists(PREPROCESSED_DIR):
         os.makedirs(PREPROCESSED_DIR)
@@ -50,7 +50,8 @@ if __name__ == '__main__':
     preprocess_dir(TRAIN_DIR, PREPROCESSED_DIR,
                    REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
                    classes,
-                   results.numcores)
+                   results.numcores,
+                   verbose=0)
 
     ############### DATA IMPORT ###############
 

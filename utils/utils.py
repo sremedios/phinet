@@ -105,6 +105,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     # convert image to 256^3 1mm^3 coronal images with intensity range [0,255]
     call = "mri_convert -odt uchar --crop 0 0 0 -c" + " " + filename + \
         " " + os.path.join(tmpdir, basename)
+
     if verbose == 0:
         call = call + " " + ">/dev/null  2>&1"
     os.system(call)
@@ -149,6 +150,8 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     os.system(call)
 
     all_filenames = os.listdir(outdir)
+
+    new_name = basename
     for f in all_filenames:
         if os.path.basename(f) == basename:
             new_name = f
@@ -156,7 +159,7 @@ def preprocess(filename, outdir, tmpdir, reorient_script_path, robustfov_script_
     return new_name
 
 
-def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, classes, ncores):
+def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_script_path, classes, ncores, verbose=0):
     '''
     Preprocesses all files in train_dir into preprocess_dir using prepreocess.sh
 
@@ -170,7 +173,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
         preprocess_dir, "tmp_intermediate_preprocessing_steps")
 
     class_directories = [os.path.join(train_dir, x)
-                         for x in os.listdir(train_dir)]
+                         for x in os.listdir(train_dir) if x != "preprocess"]
     class_directories.sort()
 
     print(classes)
@@ -207,7 +210,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
                                                     tmpdir=TMPDIR,
                                                     reorient_script_path=reorient_script_path,
                                                     robustfov_script_path=robustfov_script_path,
-                                                    verbose=0,)
+                                                    verbose=verbose,)
                                 for f in filenames)
 
         # remove the intermediate preprocessing steps at every iteration, otherwise
