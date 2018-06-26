@@ -75,7 +75,7 @@ if __name__ == '__main__':
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 16
+    BATCH_SIZE = 1
 
     # make predictions with best weights and save results
     preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)

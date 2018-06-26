@@ -15,6 +15,8 @@ from keras import backend as K
 from keras.models import model_from_json
 from models.phinet import phinet
 
+from utils.image_generator import DataGenerator
+
 from utils.load_data import load_data
 from utils.preprocess import preprocess_dir
 from utils.utils import parse_args, now
@@ -42,7 +44,7 @@ if __name__ == '__main__':
     ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
 
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
-    PREPROCESSED_DIR = os.path.join(WEIGHT_DIR, "preprocess")
+    PREPROCESSED_DIR = os.path.join(TRAIN_DIR, "preprocess")
 
     if not os.path.exists(PREPROCESSED_DIR):
         os.makedirs(PREPROCESSED_DIR)
@@ -50,15 +52,36 @@ if __name__ == '__main__':
     ############### PREPROCESSING ###############
 
     classes = results.classes.replace(" ","").split(',')
+    class_encodings = {}
+    for i, c in enumerate(classes):
+        class_encodings[c] = i
+        
 
     preprocess_dir(TRAIN_DIR, PREPROCESSED_DIR,
                    REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
                    classes,
                    results.numcores)
 
+
     ############### DATA IMPORT ###############
 
-    X, y, filenames, num_classes, img_shape = load_data(PREPROCESSED_DIR, classes)
+    #X, y, filenames, num_classes, img_shape = load_data(PREPROCESSED_DIR, classes)
+    params = {'dim': (128,128,128),
+            'batch_size': 8,
+            'n_classes': 3,
+            'class_encodings': class_encodings,
+            'n_channels': 1,
+            'shuffle': True}
+    partition = {'val': [], 'train': []}
+    sub_dirs = [os.path.join(PREPROCESSED_DIR, x) for x in os.listdir(PREPROCESSED_DIR)]
+    for c in sub_dirs:
+        filenames = [os.path.join(c, x) for x in os.listdir(c)]
+        split = int(len(filenames) * 0.2)
+        partition['val'].extend(filenames[:split])
+        partition['train'].extend(filenames[split:])
+
+    train_gen = DataGenerator(partition['train'], **params)
+    val_gen = DataGenerator(partition['val'], **params)
 
     print("Finished data processing")
 
@@ -80,7 +103,7 @@ if __name__ == '__main__':
             model = model_from_json(json.load(json_data))
         model.load_weights(best_weights)
     else:
-        model = phinet(n_classes=num_classes, learning_rate=LR)
+        model = phinet(n_classes=params['n_classes'], learning_rate=LR)
 
     # save model architecture to file
     json_string = model.to_json()
@@ -123,8 +146,16 @@ if __name__ == '__main__':
     #BATCH_SIZE = 2
     BATCH_SIZE = 64 # 10 should fit in a 12GB card
 
+    '''
     model.fit(X, y, epochs=NB_EPOCHS, validation_split=0.2,
               batch_size=BATCH_SIZE, verbose=1, callbacks=callbacks_list)
+    '''
+    model.fit_generator(generator=train_gen,
+                        validation_data=val_gen,
+                        epochs=NB_EPOCHS,
+                        callbacks=callbacks_list,
+                        use_multiprocessing=True,
+                        workers=4)
 
     # shutil.rmtree(PREPROCESSED_DIR)
     K.clear_session()

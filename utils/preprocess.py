@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 import sys
 
 from .mri_convert import mri_convert
-from .robust_fov import robust_fov
+from .robustfov import robust_fov
 
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
 
