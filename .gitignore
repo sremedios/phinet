@@ -3,5 +3,7 @@ sorting_example/*
 weights/*
 *.swp
 __pycache__/*
+models/__pycache__/*
+utils/__pycache__/*
 validation_results/*
 class_encodings.txt
