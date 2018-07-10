@@ -50,6 +50,7 @@ def load_data(data_dir, classes=None):
 
     if classes is None:
         all_filenames = []
+        data = []
         filenames = [x for x in os.listdir(data_dir)
                      if not os.path.isdir(os.path.join(data_dir, x))]
         filenames.sort()

@@ -68,8 +68,12 @@ if __name__ == '__main__':
 
     ############### DATA IMPORT ###############
 
-    PATCH_SIZE = (15, 15, 3)
-    X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
+    #PATCH_SIZE = (15, 15, 3)
+    #X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
+    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
+                                                              patch_size=(15,15,15),
+                                                              num_patches=10,
+                                                              classes=classes)
 
     print("Test data loaded.")
 

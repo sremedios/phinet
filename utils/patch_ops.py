@@ -9,11 +9,11 @@ import random
 from tqdm import *
 import numpy as np
 import nibabel as nib
+from .display import show_image
 from keras.utils import to_categorical
-from .reorient import orient
-from .robustfov import robust_fov
+from sklearn.utils import shuffle
 
-def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True, num_patches=100):
+def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose=0):
     '''
     Loads in datasets and returns the labeled preprocessed patches for use in the model.
 
@@ -33,27 +33,19 @@ def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True, num
         - all_filenames: list of strings, corresponding filenames for use in validation/test
     '''
 
-    data = []
     labels = []
-    all_filenames = []
-
 
     #################### CLASSIFICATION OF UNKNOWN DATA ####################
 
-    if not labels_known:
-        print("*** CALLING 3DRESAMPLE ***")
-        orient_dir = orient(data_dir, preprocess_dir)
-
-        print("*** CALLING ROBUSTFOV ***")
-        robustfov_dir = robust_fov(orient_dir, preprocess_dir)
-
-        filenames = [x for x in os.listdir(robustfov_dir) 
-                if not os.path.isdir(os.path.join(robustfov_dir,x))]
+    if classes is None:
+        all_filenames = []
+        data = []
+        filenames = [x for x in os.listdir(data_dir) 
+                if not os.path.isdir(os.path.join(data_dir,x))]
         filenames.sort()
 
-        for f in filenames:
+        for f in tqdm(filenames):
             img = nib.load(os.path.join(robustfov_dir, f)).get_data()
-            #normalized_img = normalize_data(img)
             patches = get_patches(img, patch_size, num_patches)
 
             for patch in tqdm(patches):
@@ -72,41 +64,73 @@ def load_patch_data(data_dir, preprocess_dir, patch_size, labels_known=True, num
     class_directories = [os.path.join(data_dir, x)
                          for x in os.listdir(data_dir)]
     class_directories.sort()
+
+    print(classes)
     num_classes = len(class_directories)
 
-    # write the mapping of class to a local file in the following space-separated format:
-    # CLASS_NAME integer_category
-    class_encodings_file = os.path.join(data_dir, "..", "..", "class_encodings.txt")
-    if not os.path.exists(class_encodings_file):
-        with open(class_encodings_file, 'w') as f:
-            for i in range(len(class_directories)):
-                f.write(os.path.basename(class_directories[i]) + " " + str(i) + '\n')
+    # set up all_filenames and class_labels to speed up shuffling
+    all_filenames = []
+    class_labels = {}
+    i = 0
+    for class_directory in class_directories:
+        if not os.path.basename(class_directory) in classes:
+            print("{} not in {}; omitting.".format(
+                os.path.basename(class_directory),
+                classes))
+            continue
 
-    print("*** GATHERING PATCHES ***")
-    for i in range(len(class_directories)):
-        filenames = os.listdir(class_directories[i])
-        filenames.sort()
+        class_labels[os.path.basename(class_directory)] = i
+        i += 1
+        for filename in os.listdir(class_directory):
+            filepath = os.path.join(class_directory, filename)
+            all_filenames.append(filepath)
 
-        for f in tqdm(filenames):
-            img = nib.load(os.path.join(class_directories[i], f)).get_data()
-            #normalized_img = normalize_data(img)
-            patches = get_patches(img, patch_size, num_patches)
 
-            for patch in patches:
-                data.append(patch)
-                labels.append(to_categorical(i, num_classes=num_classes))
-                all_filenames.append(f)
+    img_shape = patch_size
+    num_items = len(all_filenames) * num_patches 
+    data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.uint8)
+    labels = np.zeros((num_items,) + (num_classes,), dtype=np.uint8)
+    filenames = [None] * num_items
+
+    print(data.shape)
+    print(labels.shape)
+
+    all_filenames = shuffle(all_filenames, random_state=0)
+    indices = np.arange(num_items)
+    indices = shuffle(indices, random_state=0)
+    cur = 0
+
+    for f in tqdm(all_filenames):
+        img = nib.load(f).get_data()
+        patches = get_patches(img, patch_size, num_patches)
+
+        cur_label = f.split(os.sep)[-2]
+
+        for patch in patches:
+            # graph patches to ensure proper collection
+            if verbose:
+                middle_slice_idx = patch.shape[2]//2
+                show_image(patch[:,:,middle_slice_idx,0])
+
+            data[indices[cur]] = patch
+            labels[indices[cur]] = to_categorical(
+                class_labels[cur_label], num_classes=num_classes)
+
+            filenames[indices[cur]] = f
+            cur += 1
+
+
 
     print("A total of {} patches collected.".format(len(data)))
 
-    data = np.array(data, dtype=np.float16)
-    data = np.reshape(data, (data.shape + (1,))) 
-    labels = np.array(labels, dtype=np.float16)
+    labels = np.array(labels, dtype=np.uint8)
+    print(data.shape)
+    print(labels.shape)
 
-    return data, labels, all_filenames
+    return data, labels, filenames, num_classes, data[0].shape
 
 
-def get_patches(img, patch_size, num_patches=100):
+def get_patches(img, patch_size, num_patches=100, num_channels=1):
     '''
     Gets num_patches 3D patches of the input image for classification.
 
@@ -119,20 +143,22 @@ def get_patches(img, patch_size, num_patches=100):
         - img: 3D ndarray, the image data from which to get patches
         - patch_size: 3-element tuple of integers, size of the 3D patch to get
         - num_patches: integer (default=100), number of patches to retrieve
+        - num_channels: integer (default=1), number of channels in each image
     Returns:
-        - patches: list of 3D ndarrays, the resultant 3D patches
+        - patches: ndarray of 4D ndarrays, the resultant 3D patches by their channels
     '''
     # set random seed and variable params
     random.seed()
     mu = 0
-    sigma = 30
+    sigma = 10
 
     # find center of the given image
+    # bias center towards top quarter of brain
     center_coords = [x//2 for x in img.shape]
 
     # find num_patches random numbers as distances from the center
-    patches = []
-    for _ in range(num_patches):
+    patches = np.empty((num_patches, *patch_size, num_channels))
+    for i in range(num_patches):
         horizontal_displacement = int(random.gauss(mu, sigma))
         depth_displacement = int(random.gauss(mu, sigma))
         # deviate half as much vertically
@@ -160,6 +186,7 @@ def get_patches(img, patch_size, num_patches=100):
         if patch.shape != patch_size:
             continue
 
-        patches.append(patch)
+        #TODO: currently only works for one channel
+        patches[i,:,:,:,0] = patch
 
     return patches

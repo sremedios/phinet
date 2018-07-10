@@ -1,0 +1,1 @@
+--datadir data/train --weightdir models/weights --numcores 1 --classes PD,T1,T2
