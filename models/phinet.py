@@ -1,13 +1,57 @@
 from keras.engine import Input, Model
 from keras.layers import Conv3D, MaxPooling3D, GlobalAveragePooling3D,\
-                         GlobalMaxPooling3D, AveragePooling3D, Dense, Flatten,\
-                         Conv1D
+                         GlobalMaxPooling3D, AveragePooling3D, Dense, Flatten
+from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D,\
+                         GlobalMaxPooling2D, AveragePooling2D, Dense, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Reshape, Activation
 from keras.layers.merge import Concatenate, add
 from keras.layers.advanced_activations import LeakyReLU
 from keras.optimizers import Adam
 import keras.backend as K
+
+def phinet2D(n_classes, n_channels=1, learning_rate=1e-3):
+
+    inputs = Input(shape=(None,None,n_channels))
+
+    x = Conv2D(8, (3,3), strides=(2,2), padding='same')(inputs)
+    x = MaxPooling2D(pool_size=(3,3), strides=(1,1), padding='same')(x)
+
+    x = Conv2D(16, (3,3), strides=(2,2), padding='same')(x)
+    x = BatchNormalization()(x)
+    y = Activation('relu')(x)
+    x = Conv2D(16, (3,3), strides=(1,1), padding='same')(y)
+    x = BatchNormalization()(x)
+    x = add([x, y])
+    x = Activation('relu')(x)
+
+    # this block will pool a handful of times to get the "big picture" 
+    y = MaxPooling2D(pool_size=(5,5), strides=(2,2), padding='same')(inputs)
+    y = AveragePooling2D(pool_size=(3,3), strides=(2,2), padding='same')(y)
+    y = Conv2D(16, (3,3), strides=(1,1), padding='same')(y)
+
+    # this layer will preserve original signal
+    z = Conv2D(8, (3,3), strides=(2,2), padding='same')(inputs)
+    z = Conv2D(12, (3,3), strides=(2,2), padding='same')(z)
+    z = Conv2D(16, (3,3), strides=(1,1), padding='same')(z)
+
+    x = Concatenate(axis=-1)([x, y, z])
+
+    # global avg pooling before FC
+    x = GlobalAveragePooling2D()(x)
+    x = Dense(n_classes)(x)
+
+    pred = Activation('softmax')(x)
+    
+    model = Model(inputs=inputs, outputs=pred)
+
+    model.compile(optimizer=Adam(lr=learning_rate),
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    print(model.summary())
+
+    return model
 
 def phinet(n_classes, n_channels=1, learning_rate=1e-3):
 

@@ -13,12 +13,16 @@ from datetime import datetime
 from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau, EarlyStopping
 from keras import backend as K
 from keras.models import model_from_json
-from models.phinet import phinet
+from keras.optimizers import Adam
+from keras.utils import multi_gpu_model
+
+from models.phinet import phinet, phinet2D
+from models.multi_gpu import ModelMGPU
 
 from utils.image_generator import DataGenerator
 from utils.simple_gen import generator
 
-from utils.load_data import load_data
+from utils.load_data import load_data, load_slice_data
 from utils.patch_ops import load_patch_data
 from utils.preprocess import preprocess_dir
 from utils.utils import parse_args, now
@@ -31,10 +35,13 @@ if __name__ == '__main__':
     ############### DIRECTORIES ###############
 
     results = parse_args("train")
+    NUM_GPUS = 2
+    '''
     if results.GPUID == None:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(results.GPUID)
+    '''
 
     TRAIN_DIR = os.path.abspath(os.path.expanduser(results.TRAIN_DIR))
     CUR_DIR = os.path.abspath(
@@ -51,57 +58,15 @@ if __name__ == '__main__':
     if not os.path.exists(PREPROCESSED_DIR):
         os.makedirs(PREPROCESSED_DIR)
 
+
     ############### PREPROCESSING ###############
 
     classes = results.classes.replace(" ","").split(',')
-    class_encodings = {}
-    for i, c in enumerate(classes):
-        class_encodings[c] = i
-        
 
     preprocess_dir(TRAIN_DIR, PREPROCESSED_DIR,
                    REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
                    classes,
                    results.numcores)
-
-
-    ############### DATA IMPORT ###############
-
-    #X, y, filenames, num_classes, img_shape = load_data(PREPROCESSED_DIR, classes)
-    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=(45,45,5),
-                                                              num_patches=100,
-                                                              classes=classes,
-                                                              verbose=0,)
-
-
-
-    params = {'dim': (128,128,128),
-            'batch_size': 10,
-            'patch_size': (5,5,3),
-            'num_patches': 10,
-            'n_classes': 3,
-            'class_encodings': class_encodings,
-            'n_channels': 1,
-            'shuffle': True}
-
-
-    steps = params['batch_size'] * params['num_patches']
-
-    partition = {'val': [], 'train': []}
-    sub_dirs = [os.path.join(PREPROCESSED_DIR, x) for x in os.listdir(PREPROCESSED_DIR)]
-    for c in sub_dirs:
-        filenames = [os.path.join(c, x) for x in os.listdir(c)]
-        split = int(len(filenames) * 0.2)
-        partition['train'].extend(filenames[split:])
-        partition['val'].extend(filenames[:split])
-
-    #train_gen = DataGenerator(partition['train'], **params)
-    #val_gen = DataGenerator(partition['val'], **params)
-    train_gen = generator(partition['train'], **params)
-    val_gen = generator(partition['val'], **params)
-
-    print("Finished data processing")
 
     ############### MODEL SELECTION ###############
 
@@ -118,15 +83,28 @@ if __name__ == '__main__':
         weight_files.sort()
         best_weights = os.path.join(WEIGHT_DIR, weight_files[-1])
         with open(MODEL_PATH) as json_data:
-            model = model_from_json(json.load(json_data))
-        model.load_weights(best_weights)
+            ser_model = model_from_json(json.load(json_data))
+        ser_model.load_weights(best_weights)
     else:
-        model = phinet(n_classes=params['n_classes'], learning_rate=LR)
+        ser_model = phinet2D(n_classes=len(classes), learning_rate=LR)
 
     # save model architecture to file
-    json_string = model.to_json()
+    json_string = ser_model.to_json()
     with open(MODEL_PATH,'w') as f:
         json.dump(json_string, f)
+
+    parallel_model = ModelMGPU(ser_model, NUM_GPUS)
+    parallel_model.compile(Adam(lr=LR),
+                           'categorical_crossentropy',
+                           metrics=['accuracy'])
+
+
+
+    ############### DATA IMPORT ###############
+
+    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
+                                                              classes=classes,)
+
 
     ############### CALLBACKS ###############
 
@@ -156,20 +134,10 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 128
+    BATCH_SIZE = 2**11 
 
-    model.fit(X, y, epochs=NB_EPOCHS, validation_split=0.2,
+    parallel_model.fit(X, y, epochs=NB_EPOCHS, validation_split=0.2,
               batch_size=BATCH_SIZE, verbose=1, callbacks=callbacks_list)
-    '''
-    model.fit_generator(generator=train_gen,
-                        validation_data=val_gen,
-                        steps_per_epoch=steps,
-                        validation_steps=steps,
-                        epochs=NB_EPOCHS,
-                        callbacks=callbacks_list,
-                        use_multiprocessing=True,
-                        workers=4)
-    '''
 
     # shutil.rmtree(PREPROCESSED_DIR)
     K.clear_session()

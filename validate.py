@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.utils import shuffle
 from models.phinet import phinet
 
-from utils.load_data import load_data, load_image
+from utils.load_data import load_data, load_image, load_slice_data
 from utils.utils import now, parse_args, get_classes, record_results
 from utils.preprocess import preprocess_dir
 from utils.patch_ops import load_patch_data
@@ -65,15 +65,17 @@ if __name__ == '__main__':
 
     # get class encodings
     class_encodings = get_classes(classes)
+    print(class_encodings)
 
     ############### DATA IMPORT ###############
 
     #PATCH_SIZE = (15, 15, 3)
     #X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
-    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=(15,15,15),
-                                                              num_patches=10,
-                                                              classes=classes)
+    #X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
+                                                              #patch_size=(45,45,5),
+                                                              #num_patches=100, classes=classes)
+    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR, classes=classes)
+
 
     print("Test data loaded.")
 
@@ -105,11 +107,18 @@ if __name__ == '__main__':
     for filename in tqdm(set(filenames)):
         final_pred_scores[filename] = np.zeros(pred_shape)
 
-    
+
+    # posslby faster, must unit test
+    from itertools import groupby
+    TOTAL_ELEMENTS = len(set(filenames))  
+    final_pred_scores = {k:v for k,v in (tqdm(map(lambda pair: (pair[0], np.mean([p[1] for p in pair[1]], axis=0)), groupby(zip(filenames, preds), lambda i: i[0])), total=TOTAL_ELEMENTS))}
+
+
     # TODO: this takes way too long
     for i in tqdm(range(len(preds))):
         final_ground_truth[filenames[i]] = y[i]
-        final_pred_scores[filenames[i]] += preds[i] / filenames.count(filenames[i])
+        #final_pred_scores[filenames[i]] += preds[i] / filenames.count(filenames[i])
+        
 
 
     '''
@@ -121,28 +130,7 @@ if __name__ == '__main__':
     print("RECORDING RESULTS")
     
 
-
-
     ############### RECORD RESULTS ###############
-    '''
-    for filename, pred, ground_truth in zip(filenames, preds, y):
-        confidences = ";".join("{:.2f}".format(x*100) for x in pred)
-
-        max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
-        max_true, val_true = max(enumerate(final_ground_truth[filename])), key=itemgetter(1))
-        pred_class = class_encodings[max_idx]
-        gt_class = class_encodings[max_true]
-
-        if max_idx != max_true:
-            acc_count -= 1
-
-        record_results(results.OUTFILE, (os.path.basename(filename), gt_class, pred_class, confidences))
-
-    print("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(
-        str(acc_count),
-        str(total),
-        acc_count/total * 100.))
-    '''
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
@@ -152,6 +140,7 @@ if __name__ == '__main__':
                 max_true, val_true = max(
                     enumerate(final_ground_truth[filename]), key=itemgetter(1))
                 pos = class_encodings[max_idx]
+
 
                 # record confidences
                 confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])

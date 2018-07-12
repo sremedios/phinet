@@ -23,6 +23,106 @@ def load_image(filename):
     #return np.divide(img, MAX_VAL)
     return  img
 
+def load_slices(filename):
+    '''
+    Loads a single-channel image and adds a dimension for the implicit "1" dimension
+    Returns a np.array of slices: [slice_idx, height, width, channels==1]
+    '''
+    img = nib.load(filename).get_data()
+    img_slices = np.zeros((img.shape[-1], img.shape[0], img.shape[1], 1), dtype=np.uint8)
+    for idx in range(len(img_slices)):
+        img_slices[idx, :, :, 0] = img[:,:,idx]
+
+    return img_slices
+
+def load_slice_data(data_dir, classes=None):
+    '''
+    Loads all 2D image slices from 3D images  and returns them.
+    '''
+
+    #################### CLASSIFICATION OF UNKNOWN DATA ####################
+
+    if classes is None:
+        filenames = [x for x in os.listdir(data_dir)
+                     if not os.path.isdir(os.path.join(data_dir, x))]
+        filenames.sort()
+
+        img_shape = nib.load(filenames[0]).get_data().shape
+        total_num_slices = len(filenames) * img_shape[-1]
+        data = np.zeros(shape=((total_num_slices,) + img_shape[:-1] + (1,)), 
+                                dtype=np.uint8)
+        all_slice_filenames = [None] * total_num_slices
+
+        for f in tqdm(all_filenames):
+            img_slices = load_slices(f)
+
+            for img_slice in img_slices:
+                data[indices[cur_idx]] = img_slice
+                all_slice_filenames[indices[cur_idx]] = f
+                cur_idx += 1
+
+        print(data.shape)
+        print(labels.shape)
+        return data, all_filenames
+
+    #################### TRAINING OR VALIDATION ####################
+
+    # determine number of classes
+    class_directories = [os.path.join(data_dir, x)
+                         for x in os.listdir(data_dir)]
+    class_directories.sort()
+
+    print(classes)
+    num_classes = len(classes)
+
+    # set up all_filenames and class_labels to speed up shuffling
+    all_filenames = []
+    class_labels = {}
+    i = 0
+    for class_directory in class_directories:
+
+        if not os.path.basename(class_directory) in classes:
+            print("{} not in {}; omitting.".format(
+                os.path.basename(class_directory),
+                classes))
+            continue
+
+        class_labels[os.path.basename(class_directory)] = i
+        i += 1
+        for filename in os.listdir(class_directory):
+            filepath = os.path.join(class_directory, filename)
+            all_filenames.append(filepath)
+
+    img_shape = nib.load(all_filenames[0]).get_data().shape
+
+    total_num_slices = len(all_filenames) * img_shape[-1]
+    data = np.zeros(shape=((total_num_slices,) + img_shape[:-1] + (1,)), 
+                            dtype=np.uint8)
+    labels = np.zeros(shape=((total_num_slices,) + (num_classes,)), 
+                            dtype=np.uint8)
+    all_slice_filenames = [None] * total_num_slices
+
+
+    indices = np.arange(len(data))
+    indices = shuffle(indices, random_state=0)
+    cur_idx = 0
+
+    for f in tqdm(all_filenames):
+        img_slices = load_slices(f)
+
+        for img_slice in img_slices:
+            data[indices[cur_idx]] = img_slice
+            cur_label = f.split(os.sep)[-2]
+            labels[indices[cur_idx]] = to_categorical(class_labels[cur_label], num_classes=num_classes)
+            cur_idx += 1
+
+    print(data.shape)
+    print(labels.shape)
+    return data, labels, all_filenames, num_classes, data[0].shape
+
+
+
+
 def load_data(data_dir, classes=None):
     '''
     Loads in datasets and returns the labeled preprocessed patches for use in the model.

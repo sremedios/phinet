@@ -62,11 +62,12 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
     # determine number of classes
     class_directories = [os.path.join(data_dir, x)
-                         for x in os.listdir(data_dir)]
+                         for x in os.listdir(data_dir) if os.path.basename(x) in classes]
     class_directories.sort()
 
+    print(class_directories)
     print(classes)
-    num_classes = len(class_directories)
+    num_classes = len(classes)
 
     # set up all_filenames and class_labels to speed up shuffling
     all_filenames = []
