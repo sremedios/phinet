@@ -14,6 +14,7 @@ def warp_3d(filename, src_dir, dst_dir, verbose=0):
     Ideally images should be rigid registered to some template for uniformity, 
     but rigid registration is slow.  This is a faster way.
 
+    NOTE: Resample is now deprecated
     The -newgrid 2 resamples the image to 2mm^3 resolution
 
     Params:
@@ -31,7 +32,8 @@ def warp_3d(filename, src_dir, dst_dir, verbose=0):
             print("Already applied 3dwarp to", filename)
         return
 
-    call = "3dWarp -deoblique -NN -newgrid 2 -prefix" + " " + outfile + " " + infile
+    #call = "3dWarp -deoblique -NN -newgrid 2 -prefix" + " " + outfile + " " + infile
+    call = "3dWarp -deoblique -NN -prefix" + " " + outfile + " " + infile
 
     if not verbose:
         call += " >/dev/null 2>&1"

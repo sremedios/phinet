@@ -66,12 +66,15 @@ if __name__ == '__main__':
 
     ############### PREPROCESSING ###############
 
+    # what if we don't preprocess?
+    """
     preprocess_dir(TRAIN_DIR,
                    PREPROCESSED_DIR,
                    REORIENT_SCRIPT_PATH,
                    ROBUSTFOV_SCRIPT_PATH,
                    classes,
                    results.numcores)
+    """
 
     ############### MODEL SELECTION ###############
 
@@ -96,7 +99,8 @@ if __name__ == '__main__':
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
-                                                              classes=classes,)
+                                                              classes=classes,
+                                                              verbose=0)
 
     ############### CALLBACKS ###############
 

@@ -5,6 +5,8 @@ Preprocess files
 '''
 
 import os
+import subprocess
+from multiproecessing.pool import ThreadPool
 from tqdm import *
 import shutil
 from joblib import Parallel, delayed
@@ -14,6 +16,7 @@ from .mri_convert import mri_convert
 from .robustfov import robust_fov
 
 os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
+
 
 def preprocess(filename, preprocess_dir, verbose=1, remove_tmp_files=True):
     '''
@@ -39,12 +42,14 @@ def preprocess(filename, preprocess_dir, verbose=1, remove_tmp_files=True):
     robust_fov(filename, REORIENT_DIR, ROBUST_FOV_DIR)
     warp_3d(filename, ROBUST_FOV_DIR, WARP_3D_DIR)
 
-    # since the intensities are already [0,255], change the file from float to uchar to save space
+    # since the intensities are already [0,255] after warp3d,
+    # change the file from float to uchar to save space
     call = "fslmaths " + outfile + " " + outfile + " -odt char"
-    os.system(call)
+    subprocess.call(call)
 
     # move final preprocess step into the preprocessing directory
-    shutil.move(os.path.join(filename, WARP_3D_DIR), os.path.join(filename, preprocess_dir))
+    shutil.move(os.path.join(filename, WARP_3D_DIR),
+                os.path.join(filename, preprocess_dir))
 
     # remove the intermediate steps from each of the preprocessing steps
     if remove_tmp_files:
@@ -99,6 +104,15 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
                      for x in os.listdir(class_dir)]
 
         # preprocess in parallel using all but one cores (n_jobs=-2)
+        tp = ThreadPool(30)
+        for f in filenames:
+            tp.apply_async(preprocess(f,
+                                      preprocess_dir,
+                                      verbose=0,
+                                      remove_tmp_files=True))
+        tp.close()
+        tp.join()
+        """
         Parallel(n_jobs=ncores)(delayed(preprocess)(filename=f,
                                                     outdir=preprocess_class_dir,
                                                     tmpdir=TMPDIR,
@@ -106,6 +120,7 @@ def preprocess_dir(train_dir, preprocess_dir, reorient_script_path, robustfov_sc
                                                     robustfov_script_path=robustfov_script_path,
                                                     verbose=0,)
                                 for f in filenames)
+        """
 
         # remove the intermediate preprocessing steps at every iteration, otherwise
         # disk usage goes beyond 100GB, with lots of training data

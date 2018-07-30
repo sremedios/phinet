@@ -91,8 +91,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     img_shape = patch_size
     num_items = len(all_filenames) * num_patches 
 
-    data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.uint8)
-    labels = np.zeros((num_items,) + (num_classes,), dtype=np.uint8)
+    data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.float16)
+    labels = np.zeros((num_items,) + (num_classes,), dtype=np.float16)
     filenames = [None] * num_items
 
     print(data.shape)
@@ -103,7 +103,10 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     indices = shuffle(indices, random_state=0)
     cur = 0
 
+    verbose_filename_counter = 0
     for f in tqdm(all_filenames):
+        verbose_counter = 0
+
         img = nib.load(f).get_data()
         patches = get_patches(img, patch_size, num_patches)
 
@@ -111,9 +114,10 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
         for patch in patches:
             # graph patches to ensure proper collection
-            if verbose:
+            if verbose and verbose_counter < 5 and verbose_filename_counter < 3:
                 middle_slice_idx = patch.shape[2]//2
                 show_image(patch[:,:,middle_slice_idx,0])
+                verbose_counter += 1
 
             data[indices[cur]] = patch
             labels[indices[cur]] = to_categorical(
@@ -121,6 +125,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
             filenames[indices[cur]] = f
             cur += 1
+
+        verbose_filename_counter += 1
 
 
 
@@ -159,8 +165,11 @@ def get_patches(img, patch_size, num_patches=100, num_channels=1):
     # bias center towards top quarter of brain
     center_coords = [x//2 for x in img.shape]
 
+    # naive normalization
+    img_max = np.max(img)
+
     # find num_patches random numbers as distances from the center
-    patches = np.empty((num_patches, *patch_size, num_channels))
+    patches = np.empty((num_patches, *patch_size, num_channels), dtype=np.float16)
     for i in range(num_patches):
         horizontal_displacement = int(random.gauss(mu, sigma))
         depth_displacement = int(random.gauss(mu, sigma))
@@ -190,6 +199,6 @@ def get_patches(img, patch_size, num_patches=100, num_channels=1):
             continue
 
         #TODO: currently only works for one channel
-        patches[i,:,:,:,0] = patch
+        patches[i,:,:,:,0] = (patch/img_max).astype(np.float16)
 
     return patches
