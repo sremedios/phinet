@@ -1,1 +1,1 @@
---datadir data/adni_holdout --model models/phinet_model_T1-T2-PD.json --result_dst results --result_file test_results.csv --numcores 1 --classes PD,T1,T2
+--datadir data/test --model models/weights/phinet_model_PD-T1-T2.json --result_dst results --result_file test_results.csv --numcores 1 --classes PD,T1,T2
