@@ -114,11 +114,12 @@ def load_slice_data(data_dir, classes=None):
             data[indices[cur_idx]] = img_slice
             cur_label = f.split(os.sep)[-2]
             labels[indices[cur_idx]] = to_categorical(class_labels[cur_label], num_classes=num_classes)
+            all_slice_filenames[indices[cur_idx]] = f
             cur_idx += 1
 
     print(data.shape)
     print(labels.shape)
-    return data, labels, all_filenames, num_classes, data[0].shape
+    return data, labels, all_slice_filenames, num_classes, data[0].shape
 
 
 
