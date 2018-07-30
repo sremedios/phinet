@@ -6,7 +6,7 @@ NIH CC CNRM
 
 import os
 
-def warp_3d(filename, src_dir, dst_dir, verbose=0):
+def warp3d(filename, src_dir, dst_dir, verbose=0):
     '''
     Calls FSL's 3dwarp 
 

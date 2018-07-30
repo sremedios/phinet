@@ -49,9 +49,6 @@ if __name__ == '__main__':
             os.path.dirname(__file__)
         )
     )
-    REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
-    ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
-
     classes = results.classes.replace(" ", "").split(',')
 
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
@@ -66,15 +63,10 @@ if __name__ == '__main__':
 
     ############### PREPROCESSING ###############
 
-    # what if we don't preprocess?
-    """
     preprocess_dir(TRAIN_DIR,
                    PREPROCESSED_DIR,
-                   REORIENT_SCRIPT_PATH,
-                   ROBUSTFOV_SCRIPT_PATH,
                    classes,
                    results.numcores)
-    """
 
     ############### MODEL SELECTION ###############
 
@@ -100,7 +92,7 @@ if __name__ == '__main__':
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
                                                               classes=classes,
-                                                              verbose=0)
+                                                              verbose=1)
 
     ############### CALLBACKS ###############
 

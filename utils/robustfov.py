@@ -26,7 +26,7 @@ def robust_fov(filename, src_dir, dst_dir, verbose=0):
             print("Already applied robustFOV on", filename)
         return
 
-    call = "robustfov -i " + infile + " -r " + outfile  + " " + "160"
+    call = "robustfov -i " + infile + " -r " + outfile  + " -b 160"
 
     if not verbose:
         call += " >/dev/null 2>&1"
