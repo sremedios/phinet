@@ -14,7 +14,7 @@ from operator import itemgetter
 from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
-from models.phinet import phinet
+from models.phinet import phinet, phinet2D
 
 from utils.load_data import load_data, load_image, load_slice_data
 from utils.utils import now, parse_args, get_classes, record_results
@@ -71,10 +71,11 @@ if __name__ == '__main__':
 
     #PATCH_SIZE = (15, 15, 3)
     #X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
-    #X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              #patch_size=(45,45,5),
-                                                              #num_patches=100, classes=classes)
-    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR, classes=classes)
+    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
+                                                              patch_size=(65,65,15),
+                                                              num_patches=100, 
+                                                              classes=classes)
+    #X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR, classes=classes)
 
 
     print("Test data loaded.")
@@ -91,7 +92,9 @@ if __name__ == '__main__':
 
     # track overall accuracy
     acc_count = len(set(filenames))
+    unsure_count = 0
     total = len(set(filenames))
+    total_sure_only = len(set(filenames))
 
     print("PREDICTION COMPLETE")
 
@@ -108,12 +111,16 @@ if __name__ == '__main__':
         final_pred_scores[filename] = np.zeros(pred_shape)
 
 
+
     # posslby faster, must unit test
     from itertools import groupby
     TOTAL_ELEMENTS = len(set(filenames))  
     final_pred_scores = {k:v for k,v in (tqdm(map(lambda pair: (pair[0], np.mean([p[1] for p in pair[1]], axis=0)), groupby(zip(filenames, preds), lambda i: i[0])), total=TOTAL_ELEMENTS))}
 
 
+    print("Num filenames: {}".format(len(filenames)))
+    print("Num preds: {}".format(len(preds)))
+    print("Shape of y: {}".format(y.shape))
     # TODO: this takes way too long
     for i in tqdm(range(len(preds))):
         final_ground_truth[filenames[i]] = y[i]
@@ -131,34 +138,54 @@ if __name__ == '__main__':
     
 
     ############### RECORD RESULTS ###############
+    # mean of all values must be above 80
+    surety_threshold = .80
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
             for filename, pred in final_pred_scores.items():
-                # find class of prediction via max
-                max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
-                max_true, val_true = max(
-                    enumerate(final_ground_truth[filename]), key=itemgetter(1))
-                pos = class_encodings[max_idx]
 
+                surety = np.max(pred) - np.min(pred)
 
-                # record confidences
-                confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
-
-                if max_idx == max_true:
-                    f.write("CORRECT for {:<10} with {:<50}".format(pos, filename))
-                else:
-                    f.write("INCRRCT guess with {:<10} {:<50}".format(
-                        pos, filename))
-                    e.write("{:<10}\t{:<50}".format(pos, filename))
-                    e.write("Confidences: {}\n".format(confidences))
+                # check for surety
+                if surety < surety_threshold:
+                    pos = "??" # unknown
+                    f.write("UNSURE for {:<10} with {:<50}".format(pos, filename))
+                    unsure_count += 1
+                    total_sure_only -= 1
                     acc_count -= 1
 
-                f.write("Confidences: {}\n".format(confidences))
-            f.write("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(
+                    f.write("{:<10}\t{:<50}".format(pos, filename))
+                    confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
+                    f.write("Confidences: {}\n".format(confidences))
+
+                else:
+                    # find class of prediction via max
+                    max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
+                    max_true, val_true = max(
+                        enumerate(final_ground_truth[filename]), key=itemgetter(1))
+                    pos = class_encodings[max_idx]
+
+                    # record confidences
+                    confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
+
+                    if max_idx == max_true:
+                        f.write("CORRECT for {:<10} with {:<50}".format(pos, filename))
+                    else:
+                        f.write("INCRRCT for {:<10} {:<50}".format(
+                            pos, filename))
+                        e.write("{:<10}\t{:<50}".format(pos, filename))
+                        e.write("Confidences: {}\n".format(confidences))
+                        acc_count -= 1
+
+                    f.write("Confidences: {}\n".format(confidences))
+
+            f.write("{} of {} images correctly classified.\nUnsure Number: {}\nAccuracy: {:.2f}\nAccuracy Excluding Unsure: {:.2f}".format(
                 str(acc_count),
                 str(total),
-                acc_count/total * 100.))
+                str(unsure_count),
+                acc_count/total * 100.,
+                acc_count/total_sure_only * 100.,))
 
     print("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(
         str(acc_count),
