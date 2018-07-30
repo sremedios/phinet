@@ -1,6 +1,0 @@
-T2        	/home/sam/phinet/data/adni_holdout/preprocess/T1/ADNI_073_S_4259_MR_MPRAGE_br_raw_20121210121419802_141_S176943_I350413.nii.gzConfidences:  0.24, 47.76, 52.00
-T1        	/home/sam/phinet/data/adni_holdout/preprocess/PD/ADNI_052_S_1054_MR_Axial_PD_T2_FSE__br_raw_20070606131233203_1_S33096_I56124.nii.gzConfidences: 38.43, 46.56, 15.01
-T1        	/home/sam/phinet/data/adni_holdout/preprocess/PD/ADNI_007_S_0128_MR_Axial_PD_T2_FSE__br_raw_20100224153948222_77_S80420_I166749.nii.gzConfidences: 18.77, 43.60, 37.63
-T1        	/home/sam/phinet/data/adni_holdout/preprocess/PD/ADNI_002_S_0816_MR_Axial_PD_T2_FSE__br_raw_20060831015915155_1_S18408_I23603.nii.gzConfidences: 29.92, 48.07, 22.01
-PD        	/home/sam/phinet/data/adni_holdout/preprocess/T2/ADNI_007_S_4467_MR_Axial_T2-FSE_with_FAT_SAT__br_raw_20140204101256208_39_S211809_I412525.nii.gzConfidences: 73.44,  0.85, 25.71
-T1        	/home/sam/phinet/data/adni_holdout/preprocess/PD/ADNI_052_S_1054_MR_Axial_PD_T2_FSE__br_raw_20061128113129125_1_S22953_I30579.nii.gzConfidences: 36.50, 43.85, 19.65
