@@ -72,8 +72,8 @@ if __name__ == '__main__':
     #PATCH_SIZE = (15, 15, 3)
     #X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=(65,65,15),
-                                                              num_patches=100, 
+                                                              patch_size=(45,45,5),
+                                                              num_patches=100,
                                                               classes=classes)
     #X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR, classes=classes)
 
