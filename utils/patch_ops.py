@@ -84,7 +84,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
         i += 1
         for filename in os.listdir(class_directory):
             filepath = os.path.join(class_directory, filename)
-            all_filenames.append(filepath)
+            if not os.path.isdir(filepath):
+                all_filenames.append(filepath)
 
 
     img_shape = patch_size
