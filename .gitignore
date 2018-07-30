@@ -1,7 +1,7 @@
 data/*
 results/*
 sorting_example/*
-weights/*
+**/weights/*
 *.swp
 **/__pycache__/*
 validation_results/*
