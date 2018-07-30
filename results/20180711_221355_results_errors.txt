@@ -1,2 +1,0 @@
-T2        	/home/sam/phinet/data/test/preprocess/T1/06-2341_2015-06-20_MR_MPRAGE.nii.gzConfidences:  0.64, 47.78, 51.58
-T2        	/home/sam/phinet/data/test/preprocess/T1/06-3814_2015-08-26_MR_MPRAGE.nii.gzConfidences:  1.01, 39.21, 59.78

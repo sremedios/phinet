@@ -1,5 +1,0 @@
-T1        	/home/sam/phinet/data/train/preprocess/PD/IXI578-Guys-1078-PD.nii.gzConfidences: 40.45, 47.36, 12.18
-PD        	/home/sam/phinet/data/train/preprocess/T2/IXI369-Guys-0924-T2.nii.gzConfidences: 42.37, 22.38, 35.24
-T1        	/home/sam/phinet/data/train/preprocess/PD/IXI315-IOP-0888-PD.nii.gzConfidences: 36.51, 43.49, 20.00
-T1        	/home/sam/phinet/data/train/preprocess/PD/IXI588-IOP-1158-PD.nii.gzConfidences: 35.02, 47.06, 17.92
-T1        	/home/sam/phinet/data/train/preprocess/PD/IXI585-Guys-1130-PD.nii.gzConfidences: 44.08, 52.39,  3.53
