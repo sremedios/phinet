@@ -30,6 +30,10 @@ def parse_args(session):
         parser.add_argument('--numcores', required=True, action='store', dest='numcores',
                             default='1', type=int,
                             help='Number of cores to preprocess in parallel with')
+        parser.add_argument('--weights', required=False, action='store', dest='weights',
+                            help='Learnt weights (.hdf5) file')
+        parser.add_argument('--model', required=False, action='store', dest='model',
+                            help='Model Architecture (.json) file')
     elif session == "test":
         parser.add_argument('--infile', required=True, action='store', dest='INFILE',
                             help='Image to classify')
@@ -57,12 +61,19 @@ def parse_args(session):
         print("Invalid session. Must be one of \"train\", \"validate\", or \"test\"")
         sys.exit()
 
+    parser.add_argument('--patch_size', required=False, action='store', dest='patch_size',
+                        default='45x45x5', type=str,
+                        help="Patch size; eg: 45x45x5. Each dimension is separated by 'x'")
+    parser.add_argument('--num_patches', required=False, action='store', dest='num_patches',
+                        default='100', type=int,
+                        help="Number of patches to collect from each image volume")
     parser.add_argument('--classes', required=True, action='store', dest='classes',
                         help='Comma separated list of all classes, CASE-SENSITIVE')
     parser.add_argument('--gpuid', required=False, action='store', type=int, dest='GPUID',
-                        help='For a multi-GPU system, the trainng can be run on different GPUs.'
-                        'Use a GPU id (single number), eg: 1 or 2 to run on that particular GPU.'
-                        '0 indicates first GPU.  Optional argument. Default is the first GPU.')
+                        help='For a multi-GPU system, the trainng can be run on different GPUs.\
+                        Use a GPU id (single number), eg: 1 or 2 to run on that particular GPU.\
+                        0 indicates first GPU.  Optional argument. Default is the first GPU.\
+                        -1 for all GPUs.')
     parser.add_argument('--delete_preprocessed_dir', required=False, action='store', dest='clear',
                         default='n', help='delete all temporary directories. Enter either y or n. Default is n.')
 

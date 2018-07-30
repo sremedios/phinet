@@ -10,9 +10,12 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.optimizers import Adam
 import keras.backend as K
 
-def phinet2D(n_classes, n_channels=1, learning_rate=1e-3):
+from .multi_gpu import ModelMGPU
+import json
 
-    inputs = Input(shape=(None,None,n_channels))
+def phinet2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1):
+
+    inputs = Input(shape=(None,None,num_channels))
 
     x = Conv2D(8, (3,3), strides=(2,2), padding='same')(inputs)
     x = MaxPooling2D(pool_size=(3,3), strides=(1,1), padding='same')(x)
@@ -49,13 +52,24 @@ def phinet2D(n_classes, n_channels=1, learning_rate=1e-3):
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
+    # save json before checking if multi-gpu
+    json_string = model.to_json()
+    with open(model_path, 'w') as f:
+        json.dump(json_string, f)
+
     print(model.summary())
 
+    # recompile if multi-gpu model
+    if num_gpus > 1:
+        model = ModelMGPU(model, num_gpus)
+        model.compile(optimizer=Adam(lr=learning_rate),
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
+        
     return model
 
-def phinet(n_classes, n_channels=1, learning_rate=1e-3):
-
-    inputs = Input(shape=(None,None,None,n_channels))
+def phinet(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1):
+    inputs = Input(shape=(None,None,None,num_channels))
 
     x = Conv3D(8, (3,3,3), strides=(2,2,2), padding='same')(inputs)
     x = MaxPooling3D(pool_size=(3,3,3), strides=(1,1,1), padding='same')(x)
@@ -93,5 +107,19 @@ def phinet(n_classes, n_channels=1, learning_rate=1e-3):
                   metrics=['accuracy'])
 
     print(model.summary())
+
+    # save json before checking if multi-gpu
+    json_string = model.to_json()
+    with open(model_path, 'w') as f:
+        json.dump(json_string, f)
+
+    print(model.summary())
+
+    # recompile if multi-gpu model
+    if num_gpus > 1:
+        model = ModelMGPU(model, num_gpus)
+        model.compile(optimizer=Adam(lr=learning_rate),
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
 
     return model

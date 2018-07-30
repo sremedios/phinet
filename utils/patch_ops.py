@@ -89,6 +89,7 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
     img_shape = patch_size
     num_items = len(all_filenames) * num_patches 
+
     data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.uint8)
     labels = np.zeros((num_items,) + (num_classes,), dtype=np.uint8)
     filenames = [None] * num_items
