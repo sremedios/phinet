@@ -29,26 +29,26 @@ if __name__ == '__main__':
     ############### DIRECTORIES ###############
 
     results = parse_args("validate")
-
+    NUM_GPUS = 1
     if results.GPUID == None:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    elif results.GPUID == -1:
+        NUM_GPUS = 3
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(results.GPUID)
 
     VAL_DIR = os.path.abspath(os.path.expanduser(results.VAL_DIR))
-
     CUR_DIR = os.path.abspath(
         os.path.expanduser(
             os.path.dirname(__file__)
         )
     )
 
-    REORIENT_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "reorient.sh")
-    ROBUSTFOV_SCRIPT_PATH = os.path.join(CUR_DIR, "utils", "robustfov.sh")
-
     PREPROCESSED_DIR = os.path.join(VAL_DIR, "preprocess")
     if not os.path.exists(PREPROCESSED_DIR):
         os.makedirs(PREPROCESSED_DIR)
+
+    ############### MODEL SELECTION ###############
 
     with open(results.model) as json_data:
         model = model_from_json(json.load(json_data))
@@ -56,10 +56,10 @@ if __name__ == '__main__':
 
     ############### PREPROCESSING ###############
 
-    classes = results.classes.replace(" ","").split(',')
+    classes = results.classes.replace(" ", "").split(',')
 
-    preprocess_dir(VAL_DIR, PREPROCESSED_DIR,
-                   REORIENT_SCRIPT_PATH, ROBUSTFOV_SCRIPT_PATH,
+    preprocess_dir(VAL_DIR,
+                   PREPROCESSED_DIR,
                    classes,
                    results.numcores)
 
@@ -69,23 +69,18 @@ if __name__ == '__main__':
 
     ############### DATA IMPORT ###############
 
-    #PATCH_SIZE = (15, 15, 3)
-    #X, y, filenames = load_patch_data(PREPROCESSED_DIR, classes, PATCH_SIZE, num_patches=100)
+    patch_size = tuple([int(x) for x in results.patch_size.split('x')])
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=(45,45,5),
-                                                              num_patches=100,
+                                                              patch_size=patch_size,
+                                                              num_patches=results.num_patches,
                                                               classes=classes)
-    #X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR, classes=classes)
-
-
-    print("Test data loaded.")
 
     ############### PREDICT ###############
 
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 512 
+    BATCH_SIZE = 2**10
 
     # make predictions with best weights and save results
     preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
@@ -98,8 +93,6 @@ if __name__ == '__main__':
 
     print("PREDICTION COMPLETE")
 
-
-
     ############### AGGREGATE PATCHES ###############
 
     print("AGGREGATING RESULTS")
@@ -110,32 +103,23 @@ if __name__ == '__main__':
     for filename in tqdm(set(filenames)):
         final_pred_scores[filename] = np.zeros(pred_shape)
 
-
-
     # posslby faster, must unit test
     from itertools import groupby
-    TOTAL_ELEMENTS = len(set(filenames))  
-    final_pred_scores = {k:v for k,v in (tqdm(map(lambda pair: (pair[0], np.mean([p[1] for p in pair[1]], axis=0)), groupby(zip(filenames, preds), lambda i: i[0])), total=TOTAL_ELEMENTS))}
-
+    TOTAL_ELEMENTS = len(set(filenames))
+    final_pred_scores = {k: v for k, v in
+                         (tqdm(map(lambda pair: (pair[0],
+                                                 np.mean([p[1] for p in pair[1]], axis=0)),
+                                   groupby(zip(filenames, preds), lambda i: i[0])),
+                               total=TOTAL_ELEMENTS))}
 
     print("Num filenames: {}".format(len(filenames)))
     print("Num preds: {}".format(len(preds)))
     print("Shape of y: {}".format(y.shape))
-    # TODO: this takes way too long
     for i in tqdm(range(len(preds))):
         final_ground_truth[filenames[i]] = y[i]
-        #final_pred_scores[filenames[i]] += preds[i] / filenames.count(filenames[i])
-        
 
-
-    '''
-    for pred, true_label, filename in tqdm(zip(preds, y, filenames)):
-        final_ground_truth[filename] = true_label
-        final_pred_scores[filename] += pred / filenames.count(filename)
-    '''
 
     print("RECORDING RESULTS")
-    
 
     ############### RECORD RESULTS ###############
     # mean of all values must be above 80
@@ -149,14 +133,16 @@ if __name__ == '__main__':
 
                 # check for surety
                 if surety < surety_threshold:
-                    pos = "??" # unknown
-                    f.write("UNSURE for {:<10} with {:<50}".format(pos, filename))
+                    pos = "??"  # unknown
+                    f.write("UNSURE for {:<10} with {:<50}".format(
+                        pos, filename))
                     unsure_count += 1
                     total_sure_only -= 1
                     acc_count -= 1
 
                     f.write("{:<10}\t{:<50}".format(pos, filename))
-                    confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
+                    confidences = ", ".join(
+                        ["{:>5.2f}".format(x*100) for x in pred])
                     f.write("Confidences: {}\n".format(confidences))
 
                 else:
@@ -167,10 +153,12 @@ if __name__ == '__main__':
                     pos = class_encodings[max_idx]
 
                     # record confidences
-                    confidences = ", ".join(["{:>5.2f}".format(x*100) for x in pred])
+                    confidences = ", ".join(
+                        ["{:>5.2f}".format(x*100) for x in pred])
 
                     if max_idx == max_true:
-                        f.write("CORRECT for {:<10} with {:<50}".format(pos, filename))
+                        f.write("CORRECT for {:<10} with {:<50}".format(
+                            pos, filename))
                     else:
                         f.write("INCRRCT for {:<10} {:<50}".format(
                             pos, filename))
