@@ -1,1 +1,1 @@
---datadir data/validation --model models/weights/phinet_model_PD-T1-T2.json --result_dst results --result_file test_results.csv --numcores 1 --classes PD,T1,T2 --patch_size 45x45x5 --num_patches 100
+--datadir data/validation --model models/weights/phinet_model_PD-T1-T2.json --result_dst results --result_file test_results.csv --numcores 1 --classes PD,T1,T2 --patch_size 125x125 --num_patches 250

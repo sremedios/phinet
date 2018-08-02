@@ -13,7 +13,7 @@ import keras.backend as K
 from .multi_gpu import ModelMGPU
 import json
 
-def phinet2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1):
+def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1):
 
     inputs = Input(shape=(None,None,num_channels))
 

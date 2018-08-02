@@ -16,7 +16,7 @@ from keras.models import model_from_json
 from keras.optimizers import Adam
 from keras.utils import multi_gpu_model
 
-from models.phinet import phinet, phinet2D
+from models.phinet import phinet, phinet_2D
 from models.multi_gpu import ModelMGPU
 
 from utils.image_generator import DataGenerator
@@ -49,7 +49,9 @@ if __name__ == '__main__':
             os.path.dirname(__file__)
         )
     )
+
     classes = results.classes.replace(" ", "").split(',')
+    patch_size = tuple([int(x) for x in results.patch_size.split('x')])
 
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
     PREPROCESSED_DIR = os.path.join(TRAIN_DIR, "preprocess")
@@ -76,18 +78,28 @@ if __name__ == '__main__':
         model = load_model(results.model)
         model.load_weights(results.weights)
     else:
-        model = phinet(model_path=MODEL_PATH,
-                       n_classes=len(classes),
-                       learning_rate=LR,
-                       num_channels=1,
-                       num_gpus=NUM_GPUS)
+        if len(patch_size) == 3:
+            model = phinet(model_path=MODEL_PATH,
+                           n_classes=len(classes),
+                           learning_rate=LR,
+                           num_channels=1,
+                           num_gpus=NUM_GPUS)
+        elif len(patch_size) == 2:
+            model = phinet_2D(model_path=MODEL_PATH,
+                           n_classes=len(classes),
+                           learning_rate=LR,
+                           num_channels=1,
+                           num_gpus=NUM_GPUS)
+        else:
+            print("Invalid patch size supplied. Exiting.")
+            sys.exit()
+
 
     ############### DATA IMPORT ###############
 
     # X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
         # classes=classes,)
 
-    patch_size = tuple([int(x) for x in results.patch_size.split('x')])
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
@@ -117,7 +129,7 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**11
+    BATCH_SIZE = 2**9
 
     model.fit(X, y,
               epochs=NB_EPOCHS,

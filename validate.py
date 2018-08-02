@@ -14,7 +14,6 @@ from operator import itemgetter
 from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
-from models.phinet import phinet, phinet2D
 
 from utils.load_data import load_data, load_image, load_slice_data
 from utils.utils import now, parse_args, get_classes, record_results
