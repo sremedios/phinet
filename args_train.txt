@@ -1,1 +1,1 @@
---datadir data/train_fl_flc_t1_t1c --weightdir models/weights --numcores 1 --classes FL,FLC,T1,T1C --patch_size 155x155 --num_patches 250
+--datadir data/train --weightdir models/weights --numcores 1 --classes FL,FLC,PD,T1,T1C,T2 --patch_size 175x175 --num_patches 100

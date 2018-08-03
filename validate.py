@@ -121,8 +121,8 @@ if __name__ == '__main__':
     print("RECORDING RESULTS")
 
     ############### RECORD RESULTS ###############
-    # mean of all values must be above 80
-    surety_threshold = .80
+    # mean of all values must be above this value
+    surety_threshold = .50
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
