@@ -51,7 +51,8 @@ if __name__ == '__main__':
     )
 
     classes = results.classes.replace(" ", "").split(',')
-    patch_size = tuple([int(x) for x in results.patch_size.split('x')])
+    if results.patch_size:
+        patch_size = tuple([int(x) for x in results.patch_size.split('x')])
 
     WEIGHT_DIR = os.path.abspath(os.path.expanduser(results.OUT_DIR))
     PREPROCESSED_DIR = os.path.join(TRAIN_DIR, "preprocess")
@@ -72,34 +73,44 @@ if __name__ == '__main__':
 
     ############### MODEL SELECTION ###############
 
-    LR = 1e-4
+    LR = 1e-5
+
+    if results.patch_size:
+        patch_size = tuple([int(x) for x in (results.patch_size).split('x')])
+    else:
+        patch_size = None
+
+
+    print(patch_size)
+    verbose = 0
 
     if results.model:
         model = load_model(results.model)
         model.load_weights(results.weights)
     else:
-        if len(patch_size) == 3:
+        if patch_size and len(patch_size) == 3:
             model = phinet(model_path=MODEL_PATH,
                            n_classes=len(classes),
                            learning_rate=LR,
                            num_channels=1,
-                           num_gpus=NUM_GPUS)
-        elif len(patch_size) == 2:
+                           num_gpus=NUM_GPUS,
+                           verbose=verbose)
+        else:
             model = phinet_2D(model_path=MODEL_PATH,
                            n_classes=len(classes),
                            learning_rate=LR,
                            num_channels=1,
-                           num_gpus=NUM_GPUS)
-        else:
-            print("Invalid patch size supplied. Exiting.")
-            sys.exit()
+                           num_gpus=NUM_GPUS,
+                           verbose=verbose)
 
 
     ############### DATA IMPORT ###############
 
-    # X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
-        # classes=classes,)
+    '''
+    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
+                                                              classes=classes,)
 
+    '''
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
@@ -123,13 +134,13 @@ if __name__ == '__main__':
     callbacks_list.append(checkpoint)
 
     # Early Stopping, used to quantify convergence
-    es = EarlyStopping(monitor='val_acc', min_delta=1e-8, patience=20)
+    es = EarlyStopping(monitor='val_acc', min_delta=1e-4, patience=10)
     callbacks_list.append(es)
 
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**8
+    BATCH_SIZE = 2**7
 
     model.fit(X, y,
               epochs=NB_EPOCHS,

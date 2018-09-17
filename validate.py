@@ -68,7 +68,14 @@ if __name__ == '__main__':
 
     ############### DATA IMPORT ###############
 
-    patch_size = tuple([int(x) for x in results.patch_size.split('x')])
+    if results.patch_size:
+        patch_size = tuple([int(x) for x in results.patch_size.split('x')])
+
+    '''
+    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
+                                                              classes=classes,)
+
+    '''
     X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
@@ -79,7 +86,7 @@ if __name__ == '__main__':
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 2**10
+    BATCH_SIZE = 2**5
 
     # make predictions with best weights and save results
     preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
@@ -102,7 +109,7 @@ if __name__ == '__main__':
     for filename in tqdm(set(filenames)):
         final_pred_scores[filename] = np.zeros(pred_shape)
 
-    # posslby faster, must unit test
+    # possibly faster, must unit test
     from itertools import groupby
     TOTAL_ELEMENTS = len(set(filenames))
     final_pred_scores = {k: v for k, v in
@@ -117,12 +124,11 @@ if __name__ == '__main__':
     for i in tqdm(range(len(preds))):
         final_ground_truth[filenames[i]] = y[i]
 
-
     print("RECORDING RESULTS")
 
     ############### RECORD RESULTS ###############
     # mean of all values must be above this value
-    surety_threshold = .50
+    surety_threshold = .0
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
@@ -167,17 +173,20 @@ if __name__ == '__main__':
 
                     f.write("Confidences: {}\n".format(confidences))
 
-            f.write("{} of {} images correctly classified.\nUnsure Number: {}\nAccuracy: {:.2f}\nAccuracy Excluding Unsure: {:.2f}".format(
-                str(acc_count),
-                str(total),
-                str(unsure_count),
-                acc_count/total * 100.,
-                acc_count/total_sure_only * 100.,))
+            f.write("{} of {} images correctly classified.\n"
+                    "Unsure Number: {}\n"
+                    "Accuracy: {:.2f}\n"
+                    "Accuracy Excluding Unsure: {:.2f}"
+                    .format(str(acc_count),
+                            str(total),
+                            str(unsure_count),
+                            acc_count/total * 100.,
+                            acc_count/total_sure_only * 100.,))
 
-    print("{} of {} images correctly classified.\nAccuracy: {:.2f}\n".format(
-        str(acc_count),
-        str(total),
-        acc_count/total * 100.))
+    print("{} of {} images correctly classified.\n"
+          "Accuracy: {:.2f}\n".format(str(acc_count),
+                                      str(total),
+                                      acc_count/total * 100.))
 
     # prevent small crash from TensorFlow/Keras session close bug
     K.clear_session()

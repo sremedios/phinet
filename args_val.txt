@@ -1,1 +1,1 @@
---datadir data/validation --model models/weights/phinet_model_FL-FLC-PD-T1-T1C-T2.json --result_dst results --result_file test_results.csv --numcores 1 --classes FL,FLC,PD,T1,T1C,T2 --patch_size 175x175 --num_patches 100
+--datadir data/validation --result_dst results --result_file test_results.csv --numcores 1 --classes FL,FLC,PD,T1,T1C,T2 --patch_size 45x45 --num_patches 500

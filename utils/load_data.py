@@ -79,7 +79,10 @@ def load_slice_data(data_dir, classes=None):
     all_filenames = []
     class_labels = {}
     i = 0
+
+    FILENAME_LIMIT = 100
     for class_directory in class_directories:
+        filename_limiter = 0
 
         if not os.path.basename(class_directory) in classes:
             print("{} not in {}; omitting.".format(
@@ -91,11 +94,16 @@ def load_slice_data(data_dir, classes=None):
         i += 1
         for filename in os.listdir(class_directory):
             filepath = os.path.join(class_directory, filename)
-            all_filenames.append(filepath)
+
+            if filename_limiter < FILENAME_LIMIT:
+                filename_limiter += 1
+                all_filenames.append(filepath)
 
     img_shape = nib.load(all_filenames[0]).get_data().shape
 
     total_num_slices = len(all_filenames) * img_shape[-1]
+    print("Trying to allocate array of size {}"
+            .format((total_num_slices,) + img_shape[:-1] + (1,)))
     data = np.zeros(shape=((total_num_slices,) + img_shape[:-1] + (1,)), 
                             dtype=np.uint8)
     labels = np.zeros(shape=((total_num_slices,) + (num_classes,)), 
@@ -103,19 +111,34 @@ def load_slice_data(data_dir, classes=None):
     all_slice_filenames = [None] * total_num_slices
 
 
-    indices = np.arange(len(data))
-    indices = shuffle(indices, random_state=0)
+    # shuffles the filenames and inserts slices sequentially into data arrays
+    # this means that all slices from a single volume will be next to each other
+    # but at least every class will be shuffled in the first epoch
+    # subsequent epochs will shuffle training data such that consecutive slices
+    # aren't next to each other
+    all_filenames = shuffle(all_filenames, random_state=0)
     cur_idx = 0
 
     for f in tqdm(all_filenames):
         img_slices = load_slices(f)
 
         for img_slice in img_slices:
-            data[indices[cur_idx]] = img_slice
-            cur_label = f.split(os.sep)[-2]
-            labels[indices[cur_idx]] = to_categorical(class_labels[cur_label], num_classes=num_classes)
-            all_slice_filenames[indices[cur_idx]] = f
-            cur_idx += 1
+
+            if cur_idx >= len(data):
+                continue
+
+            if np.sum(img_slice) != 0:
+                data[cur_idx] = img_slice
+                cur_label = f.split(os.sep)[-2]
+                labels[cur_idx] = to_categorical(class_labels[cur_label],
+                                                          num_classes=num_classes)
+                all_slice_filenames[cur_idx] = f
+                cur_idx += 1
+
+    # this will chop off the empty slices
+    data = data[:cur_idx]
+    labels = labels[:cur_idx]
+    all_slice_filenames = all_slice_filenames[:cur_idx]
 
     print(data.shape)
     print(labels.shape)
