@@ -80,9 +80,8 @@ if __name__ == '__main__':
     else:
         patch_size = None
 
-
     print(patch_size)
-    verbose = 0
+    verbose = 1
 
     if results.model:
         model = load_model(results.model)
@@ -97,12 +96,11 @@ if __name__ == '__main__':
                            verbose=verbose)
         else:
             model = phinet_2D(model_path=MODEL_PATH,
-                           n_classes=len(classes),
-                           learning_rate=LR,
-                           num_channels=1,
-                           num_gpus=NUM_GPUS,
-                           verbose=verbose)
-
+                              n_classes=len(classes),
+                              learning_rate=LR,
+                              num_channels=1,
+                              num_gpus=NUM_GPUS,
+                              verbose=verbose)
 
     ############### DATA IMPORT ###############
 
@@ -111,11 +109,12 @@ if __name__ == '__main__':
                                                               classes=classes,)
 
     '''
-    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=patch_size,
-                                                              num_patches=results.num_patches,
-                                                              classes=classes,
-                                                              verbose=1)
+    X, y, tokenized_filenames, filenames, num_classes, img_shape = \
+        load_patch_data(PREPROCESSED_DIR,
+                        patch_size=patch_size,
+                        num_patches=results.num_patches,
+                        classes=classes,
+                        verbose=0)
 
     ############### CALLBACKS ###############
 
@@ -142,7 +141,8 @@ if __name__ == '__main__':
     NB_EPOCHS = 10000000
     BATCH_SIZE = 2**7
 
-    model.fit(X, y,
+    model.fit([X, tokenized_filenames],
+              y,
               epochs=NB_EPOCHS,
               validation_split=0.2,
               batch_size=BATCH_SIZE,

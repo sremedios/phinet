@@ -3,6 +3,8 @@ from keras.layers import Conv3D, MaxPooling3D, GlobalAveragePooling3D,\
                          GlobalMaxPooling3D, AveragePooling3D, Dense, Flatten
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D,\
                          GlobalMaxPooling2D, AveragePooling2D, Dense, Flatten
+from keras.layers import Conv1D, MaxPooling1D, GlobalAveragePooling1D,\
+                         GlobalMaxPooling1D, AveragePooling1D, Dense, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Reshape, Activation
 from keras.layers.merge import Concatenate, add
@@ -15,38 +17,65 @@ import json
 
 def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1, verbose=1):
 
-    inputs = Input(shape=(None,None,num_channels))
+    ########## IMAGE PROCESSING ##########
+
+    image_inputs = Input(shape=(None,None,num_channels))
 
     # residual nonlinear block
-    x = Conv2D(128, (3,3), strides=(2,2), padding='same')(inputs)
+    x = Conv2D(64, (3,3), strides=(2,2), padding='same')(image_inputs)
     x = MaxPooling2D(pool_size=(3,3), strides=(1,1), padding='same')(x)
-    x = Conv2D(128, (3,3), strides=(2,2), padding='same')(x)
+    x = Conv2D(64, (3,3), strides=(2,2), padding='same')(x)
     x = BatchNormalization()(x)
     y = Activation('relu')(x)
-    x = Conv2D(128, (3,3), strides=(1,1), padding='same')(y)
+    x = Conv2D(64, (3,3), strides=(1,1), padding='same')(y)
     x = BatchNormalization()(x)
     x = add([x, y])
     x = Activation('relu')(x)
 
     # this block will pool a handful of times to get the "big picture" 
-    y = MaxPooling2D(pool_size=(5,5), strides=(2,2), padding='same')(inputs)
+    y = MaxPooling2D(pool_size=(5,5), strides=(2,2), padding='same')(image_inputs)
+    y = Activation('relu')(x)
     y = AveragePooling2D(pool_size=(3,3), strides=(2,2), padding='same')(y)
-    y = Conv2D(128, (3,3), strides=(1,1), padding='same')(y)
+    y = Activation('relu')(x)
+    y = Conv2D(64, (3,3), strides=(1,1), padding='same')(y)
 
     # this layer will preserve original signal
-    z = Conv2D(128, (3,3), strides=(2,2), padding='same')(inputs)
-    z = Conv2D(128, (3,3), strides=(2,2), padding='same')(z)
-    z = Conv2D(128, (3,3), strides=(1,1), padding='same')(z)
+    z = Conv2D(64, (3,3), strides=(2,2), padding='same')(image_inputs)
+    z = Conv2D(64, (3,3), strides=(2,2), padding='same')(z)
+    z = Conv2D(64, (3,3), strides=(1,1), padding='same')(z)
 
     x = Concatenate(axis=-1)([x, y, z])
 
     # global avg pooling before FC
     x = GlobalAveragePooling2D()(x)
+    x = Dense(64)(x)
+
+    ########## TEXT PROCESSING ##########
+
+    text_inputs = Input(shape=(None,1,))
+    
+    a = Conv1D(64, (3), strides=(1), padding='same', activation='relu')(text_inputs)
+    a = MaxPooling1D(pool_size=(3), strides=(1), padding='same')(a)
+    a = Conv1D(64, (3), strides=(1), padding='same', activation='relu')(a)
+    a = MaxPooling1D(pool_size=(3), strides=(1), padding='same')(a)
+    a = Conv1D(64, (3), strides=(1), padding='same', activation='relu')(a)
+    a = MaxPooling1D(pool_size=(3), strides=(1), padding='same')(a)
+    a = GlobalAveragePooling1D()(a)
+    a = Dense(64)(a)
+
+    ########## AGGREGATION ##########
+
+    x = Concatenate(axis=-1)([x, a])
+    x = Dense(32)(x)
+    x = Dense(16)(x)
+
+    ########## PREDICTION ##########
+
     x = Dense(n_classes)(x)
 
     pred = Activation('softmax')(x)
     
-    model = Model(inputs=inputs, outputs=pred)
+    model = Model(inputs=[image_inputs, text_inputs], outputs=pred)
 
     model.compile(optimizer=Adam(lr=learning_rate),
                   loss='categorical_crossentropy',

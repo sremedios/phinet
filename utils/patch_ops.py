@@ -12,6 +12,7 @@ import numpy as np
 import nibabel as nib
 from .display import show_image
 from keras.utils import to_categorical
+from keras.preprocessing.text import one_hot, text_to_word_sequence
 from sklearn.utils import shuffle
 
 
@@ -96,6 +97,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.uint8)
     labels = np.zeros((num_items,) + (num_classes,), dtype=np.uint8)
     filenames = [None] * num_items
+    tokenized_filenames = [None] * num_items
+    vocab_size = 100  # hard coded for now
 
     print(data.shape)
     print(labels.shape)
@@ -106,6 +109,7 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     cur = 0
 
     verbose_filename_counter = 0
+
     for f in tqdm(all_filenames):
         verbose_counter = 0
 
@@ -141,6 +145,14 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
                 class_labels[cur_label], num_classes=num_classes)
 
             filenames[indices[cur]] = f
+
+            # cast filename to list of integers
+            tmp = np.array([ord(char) for char in list(os.path.basename(f))])
+            diff = vocab_size - len(tmp)
+            tmp = np.pad(tmp, (0,diff), mode='constant', constant_values=(0,))
+            tmp = np.reshape(tmp, tmp.shape + (1,))
+            tokenized_filenames[indices[cur]] = tmp 
+
             cur += 1
 
         verbose_filename_counter += 1
@@ -148,10 +160,13 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     print("A total of {} patches collected.".format(len(data)))
 
     labels = np.array(labels, dtype=np.uint8)
+    tokenized_filenames = np.array(tokenized_filenames)
+
     print(data.shape)
     print(labels.shape)
+    print(tokenized_filenames.shape)
 
-    return data, labels, filenames, num_classes, data[0].shape
+    return data, labels, tokenized_filenames, filenames, num_classes, data[0].shape
 
 
 def get_patches(img, filename, patch_size, num_patches=100, num_channels=1):
@@ -192,7 +207,7 @@ def get_patches(img, filename, patch_size, num_patches=100, num_channels=1):
         timeout_counter = 50
 
         while np.sum(patch) == 0:
-            
+
             if timeout_counter <= 0:
                 print("Failed to find valid patch for {}".format(filename))
                 break

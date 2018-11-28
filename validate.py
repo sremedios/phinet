@@ -76,10 +76,11 @@ if __name__ == '__main__':
                                                               classes=classes,)
 
     '''
-    X, y, filenames, num_classes, img_shape = load_patch_data(PREPROCESSED_DIR,
-                                                              patch_size=patch_size,
-                                                              num_patches=results.num_patches,
-                                                              classes=classes)
+    X, y, tokenized_filenames, filenames, num_classes, img_shape = \
+        load_patch_data(PREPROCESSED_DIR,
+                        patch_size=patch_size,
+                        num_patches=results.num_patches,
+                        classes=classes)
 
     ############### PREDICT ###############
 
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 2**7
 
     # make predictions with best weights and save results
-    preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
+    preds = model.predict([X, tokenized_filenames], batch_size=BATCH_SIZE, verbose=1)
 
     # track overall accuracy
     acc_count = len(set(filenames))
