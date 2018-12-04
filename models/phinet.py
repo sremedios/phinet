@@ -50,6 +50,7 @@ def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpu
     x = GlobalAveragePooling2D()(x)
     x = Dense(64)(x)
 
+    '''
     ########## TEXT PROCESSING ##########
 
     text_inputs = Input(shape=(None,1,))
@@ -68,6 +69,7 @@ def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpu
     x = Concatenate(axis=-1)([x, a])
     x = Dense(32)(x)
     x = Dense(16)(x)
+    '''
 
     ########## PREDICTION ##########
 
@@ -75,7 +77,8 @@ def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpu
 
     pred = Activation('softmax')(x)
     
-    model = Model(inputs=[image_inputs, text_inputs], outputs=pred)
+    #model = Model(inputs=[image_inputs, text_inputs], outputs=pred)
+    model = Model(inputs=image_inputs, outputs=pred)
 
     model.compile(optimizer=Adam(lr=learning_rate),
                   loss='categorical_crossentropy',

@@ -262,7 +262,7 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
     # set random seed and variable params
     random.seed()
     mu = 0
-    sigma = 50
+    sigma = 10
 
     # find center of the given image
     # bias center towards top quarter of brain

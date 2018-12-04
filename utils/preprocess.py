@@ -36,21 +36,25 @@ def preprocess(filename, src_dir, dst_dir, tmp_dir, verbose=1, remove_tmp_files=
         if not os.path.exists(d):
             os.makedirs(d)
 
-    mri_convert(filename, src_dir, MRI_CONVERT_DIR, verbose=verbose)
-    orient(filename, MRI_CONVERT_DIR, ORIENT_DIR, verbose=verbose)
-    robust_fov(filename, ORIENT_DIR, ROBUST_FOV_DIR, verbose=verbose)
-    warp3d(filename, ROBUST_FOV_DIR, WARP_3D_DIR, verbose=verbose)
+    #mri_convert(filename, src_dir, MRI_CONVERT_DIR, verbose=verbose)
+    #orient(filename, MRI_CONVERT_DIR, ORIENT_DIR, verbose=verbose)
+    #robust_fov(filename, ORIENT_DIR, ROBUST_FOV_DIR, verbose=verbose)
+    #warp3d(filename, ROBUST_FOV_DIR, WARP_3D_DIR, verbose=verbose)
 
-    final_preprocessing_dir = WARP_3D_DIR 
+    #final_preprocessing_dir = WARP_3D_DIR 
+    orient(filename, src_dir, ORIENT_DIR, verbose=verbose)
+    final_preprocessing_dir = ORIENT_DIR 
 
     # since the intensities are already [0,255] after warp3d,
     # change the file from float to uchar to save space
+    '''
     call = "fslmaths " +\
             os.path.join(final_preprocessing_dir, filename) + " "+\
             os.path.join(dst_dir, filename) +\
             " -odt char"
 
     os.system(call)
+    '''
 
     # remove the intermediate steps from each of the preprocessing steps
     if remove_tmp_files:

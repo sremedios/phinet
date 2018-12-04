@@ -64,23 +64,16 @@ if __name__ == '__main__':
         if not os.path.exists(d):
             os.makedirs(d)
 
-    ############### PREPROCESSING ###############
-
-    preprocess_dir(TRAIN_DIR,
-                   PREPROCESSED_DIR,
-                   classes,
-                   results.numcores)
-
     ############### MODEL SELECTION ###############
 
-    LR = 1e-5
+    LR = 1e-4
 
     if results.patch_size:
         patch_size = tuple([int(x) for x in (results.patch_size).split('x')])
     else:
         patch_size = None
-
-    print(patch_size)
+        print(patch_size)
+        
     verbose = 1
 
     if results.model:
@@ -102,9 +95,15 @@ if __name__ == '__main__':
                               num_gpus=NUM_GPUS,
                               verbose=verbose)
 
+    ############### PREPROCESSING ###############
+
+    preprocess_dir(TRAIN_DIR,
+                   PREPROCESSED_DIR,
+                   classes,
+                   results.numcores)
+
     ############### DATA IMPORT ###############
 
-    '''
     X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
                                                               classes=classes,)
 
@@ -115,6 +114,7 @@ if __name__ == '__main__':
                         num_patches=results.num_patches,
                         classes=classes,
                         verbose=0)
+    '''
 
     ############### CALLBACKS ###############
 
@@ -139,9 +139,9 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**7
+    BATCH_SIZE = 2**5
 
-    model.fit([X, tokenized_filenames],
+    model.fit(X,
               y,
               epochs=NB_EPOCHS,
               validation_split=0.2,
