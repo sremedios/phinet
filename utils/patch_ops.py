@@ -259,6 +259,11 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
     Returns:
         - patches: ndarray of 2D ndarrays, the resultant 2D patches by their channels
     '''
+
+    # naive normalization
+    denom = (np.max(img) * 0.95)
+
+
     # set random seed and variable params
     random.seed()
     mu = 0
@@ -313,5 +318,10 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
 
         # TODO: currently only works for one channel
         patches[i, :, :, 0] = patch
+
+    # apply normalization
+    patches = patches / denom
+    patches[np.where(patches > 1)] = 1
+    patches[np.where(patches < 0)] = 0
 
     return patches

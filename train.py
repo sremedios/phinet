@@ -17,6 +17,7 @@ from keras.optimizers import Adam
 from keras.utils import multi_gpu_model
 
 from models.phinet import phinet, phinet_2D
+from models.inception import inception
 from models.multi_gpu import ModelMGPU
 
 from utils.image_generator import DataGenerator
@@ -76,6 +77,14 @@ if __name__ == '__main__':
         
     verbose = 1
 
+    model = phinet_2D(model_path=MODEL_PATH,
+                      n_classes=len(classes),
+                      learning_rate=LR,
+                      num_channels=1,
+                      num_gpus=NUM_GPUS,
+                      verbose=verbose)
+
+    '''
     if results.model:
         model = load_model(results.model)
         model.load_weights(results.weights)
@@ -94,6 +103,7 @@ if __name__ == '__main__':
                               num_channels=1,
                               num_gpus=NUM_GPUS,
                               verbose=verbose)
+    '''
 
     ############### PREPROCESSING ###############
 
@@ -139,10 +149,9 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**5
+    BATCH_SIZE = 2**7
 
-    model.fit(X,
-              y,
+    model.fit(X, y,
               epochs=NB_EPOCHS,
               validation_split=0.2,
               batch_size=BATCH_SIZE,

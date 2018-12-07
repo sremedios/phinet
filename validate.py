@@ -90,7 +90,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 2**7
 
     # make predictions with best weights and save results
-    preds = model.predict([X, tokenized_filenames], batch_size=BATCH_SIZE, verbose=1)
+    preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
 
     # track overall accuracy
     acc_count = len(set(filenames))

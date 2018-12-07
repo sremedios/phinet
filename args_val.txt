@@ -1,1 +1,1 @@
---datadir data/test --result_dst results --result_file test_results.csv --numcores 1 --classes PD,T1,T2 --patch_size 125x125 --num_patches 100
+--datadir data/test --result_dst results --result_file test_results.csv --numcores 8 --classes FL,FLC,T1,T1C,T2,PD
