@@ -1,1 +1,1 @@
---datadir data/test --result_dst results --result_file test_results.csv --numcores 8 --classes FL,FLC,T1,T1C,T2,PD
+--datadir data/test --result_dst results --result_file test_results.csv --numcores 1 --classes FL,T1,T2,PD

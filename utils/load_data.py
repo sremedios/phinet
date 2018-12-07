@@ -24,6 +24,24 @@ def load_image(filename):
     # return np.divide(img, MAX_VAL)
     return img
 
+def load_nonzero_slices(filename):
+    '''
+    Loads a single-channel image and adds a dimension for the implicit "1" dimension
+    Returns a np.array of slices: [slice_idx, height, width, channels==1]
+    '''
+    img = nib.load(filename).get_data()
+    img_slices = np.zeros(
+        (img.shape[-1], img.shape[0], img.shape[1], 1), dtype=np.uint8)
+    cur_idx = 0
+
+    for slice_idx in range(img.shape[-1]):
+        img_slice = img[:,:,slice_idx]
+        if np.mean(img_slice) > 15:
+            img_slices[cur_idx,:,:,0] = img_slice
+            cur_idx += 1
+
+    return img_slices[:cur_idx]
+
 
 def load_slices(filename):
     '''
@@ -84,6 +102,9 @@ def load_slice_data(data_dir, classes=None):
     class_labels = {}
     i = 0
 
+    # track class balance for slices
+    class_balance_tracker = {}
+
     for class_directory in class_directories:
         filename_limiter = 0
 
@@ -94,6 +115,8 @@ def load_slice_data(data_dir, classes=None):
             continue
 
         class_labels[os.path.basename(class_directory)] = i
+        class_balance_tracker[os.path.basename(class_directory)] = 0
+
         i += 1
         for filename in os.listdir(class_directory):
             filepath = os.path.join(class_directory, filename)
@@ -109,7 +132,7 @@ def load_slice_data(data_dir, classes=None):
         img_slices = load_slices(f)
 
         for img_slice in img_slices:
-            if np.sum(img_slice) > 0:
+            if np.mean(img_slice) > 15:
                 total_num_slices += 1
 
     # allocate
@@ -125,12 +148,13 @@ def load_slice_data(data_dir, classes=None):
     all_filenames = shuffle(all_filenames, random_state=0)
     indexer = 0
 
+
     # then put into array
     for f in tqdm(all_filenames):
         img_slices = load_slices(f)
 
         for img_slice in img_slices:
-            if np.sum(img_slice) != 0:
+            if np.mean(img_slice) > 15:
                 cur_idx = all_indices[indexer]
 
                 data[cur_idx] = img_slice
@@ -140,8 +164,12 @@ def load_slice_data(data_dir, classes=None):
                 all_slice_filenames[cur_idx] = f
                 indexer += 1
 
+                class_balance_tracker[cur_label] += 1
+
     print(data.shape)
     print(labels.shape)
+    print("# of slices per class:", class_balance_tracker)
+
     return data, labels, all_slice_filenames, num_classes, data[0].shape
 
 

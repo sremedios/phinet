@@ -149,7 +149,7 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**7
+    BATCH_SIZE = 2**8
 
     model.fit(X, y,
               epochs=NB_EPOCHS,

@@ -15,7 +15,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.utils import shuffle
 
-from utils.load_data import load_data, load_image, load_slice_data
+from utils.load_data import load_data, load_image, load_slice_data, load_nonzero_slices
 from utils.utils import now, parse_args, get_classes, record_results
 from utils.preprocess import preprocess_dir
 from utils.patch_ops import load_patch_data
@@ -68,73 +68,77 @@ if __name__ == '__main__':
 
     ############### DATA IMPORT ###############
 
-    if results.patch_size:
-        patch_size = tuple([int(x) for x in results.patch_size.split('x')])
+    inv_class_encodings = {v: k for k, v in class_encodings.items()}
 
-    '''
-    X, y, filenames, num_classes, img_shape = load_slice_data(PREPROCESSED_DIR,
-                                                              classes=classes,)
-
-    '''
-    X, y, tokenized_filenames, filenames, num_classes, img_shape = \
-        load_patch_data(PREPROCESSED_DIR,
-                        patch_size=patch_size,
-                        num_patches=results.num_patches,
-                        classes=classes)
+    class_directories = [os.path.join(PREPROCESSED_DIR, x)
+                         for x in os.listdir(PREPROCESSED_DIR)]
+    class_directories.sort()
+    all_filenames = []
+    for class_directory in class_directories:
+        if not os.path.basename(class_directory) in classes:
+            continue
+        for filename in os.listdir(class_directory):
+            filepath = os.path.join(class_directory, filename)
+            all_filenames.append(filepath)
 
     ############### PREDICT ###############
+
+    # track overall accuracy
+    acc_count = len(set(all_filenames))
+    unsure_count = 0
+    total = len(set(all_filenames))
+    total_sure_only = len(set(all_filenames))
 
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 2**7
+    BATCH_SIZE = 2**5
 
-    # make predictions with best weights and save results
-    preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
+    for filename in tqdm(all_filenames):
+        X = load_nonzero_slices(filename)
+        y = inv_class_encodings[filename.split(os.sep)[-2]]
 
-    # track overall accuracy
-    acc_count = len(set(filenames))
-    unsure_count = 0
-    total = len(set(filenames))
-    total_sure_only = len(set(filenames))
+        # make predictions with best weights and save results
+        preds = model.predict(X, batch_size=BATCH_SIZE, verbose=0)
 
-    print("PREDICTION COMPLETE")
 
-    ############### AGGREGATE PATCHES ###############
+        # keep only "sure" predictions
+        surety_threshold = .7
+        try:
+            preds = preds[np.where(
+                np.abs(np.max(preds, axis=1) - np.min(preds, axis=1)) > surety_threshold)]
+            # average over all predicted slices
+            pred = np.mean(preds, axis=0)
+        except:
+            print("Error predicting on {}".format(filename))
+            continue
 
-    print("AGGREGATING RESULTS")
-    # initialize aggregate
-    final_pred_scores = {}
-    final_ground_truth = {}
-    pred_shape = preds[0].shape
-    for filename in tqdm(set(filenames)):
-        final_pred_scores[filename] = np.zeros(pred_shape)
+        ############### RECORD RESULTS ###############
+        # mean of all values must be above this value
 
-    # possibly faster, must unit test
-    from itertools import groupby
-    TOTAL_ELEMENTS = len(set(filenames))
-    final_pred_scores = {k: v for k, v in
-                         (tqdm(map(lambda pair: (pair[0],
-                                                 np.mean([p[1] for p in pair[1]], axis=0)),
-                                   groupby(zip(filenames, preds), lambda i: i[0])),
-                               total=TOTAL_ELEMENTS))}
+        with open(os.path.join(PRED_DIR, "results.txt"), 'a') as f:
+            with open(os.path.join(PRED_DIR, "results_errors.txt"), 'a') as e:
+                # find class of prediction via max
+                max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
+                pos = class_encodings[max_idx]
 
-    print("Num filenames: {}".format(len(filenames)))
-    print("Num preds: {}".format(len(preds)))
-    print("Shape of y: {}".format(y.shape))
-    for i in tqdm(range(len(preds))):
-        final_ground_truth[filenames[i]] = y[i]
+                # record confidences
+                confidences = ", ".join(
+                    ["{:>5.2f}".format(x*100) for x in pred])
 
-    print("RECORDING RESULTS")
+                if max_idx == y:
+                    f.write("CORRECT for {:<10} with {:<50}".format(
+                        pos, filename))
+                else:
+                    f.write("INCRRCT for {:<10} {:<50}".format(
+                        pos, filename))
+                    e.write("{:<10}\t{:<50}".format(pos, filename))
+                    e.write("Confidences: {}\n".format(confidences))
+                    acc_count -= 1
 
-    ############### RECORD RESULTS ###############
-    # mean of all values must be above this value
-    surety_threshold = .0
+                f.write("Confidences: {}\n".format(confidences))
 
-    with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
-        with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
-            for filename, pred in final_pred_scores.items():
-
+                '''
                 surety = np.max(pred) - np.min(pred)
 
                 # check for surety
@@ -154,15 +158,13 @@ if __name__ == '__main__':
                 else:
                     # find class of prediction via max
                     max_idx, max_val = max(enumerate(pred), key=itemgetter(1))
-                    max_true, val_true = max(
-                        enumerate(final_ground_truth[filename]), key=itemgetter(1))
                     pos = class_encodings[max_idx]
 
                     # record confidences
                     confidences = ", ".join(
                         ["{:>5.2f}".format(x*100) for x in pred])
 
-                    if max_idx == max_true:
+                    if max_idx == y:
                         f.write("CORRECT for {:<10} with {:<50}".format(
                             pos, filename))
                     else:
@@ -173,16 +175,18 @@ if __name__ == '__main__':
                         acc_count -= 1
 
                     f.write("Confidences: {}\n".format(confidences))
+                '''
 
-            f.write("{} of {} images correctly classified.\n"
-                    "Unsure Number: {}\n"
-                    "Accuracy: {:.2f}\n"
-                    "Accuracy Excluding Unsure: {:.2f}"
-                    .format(str(acc_count),
-                            str(total),
-                            str(unsure_count),
-                            acc_count/total * 100.,
-                            acc_count/total_sure_only * 100.,))
+    with open(os.path.join(PRED_DIR, "results.txt"), 'a') as f:
+        f.write("{} of {} images correctly classified.\n"
+                "Unsure Number: {}\n"
+                "Accuracy: {:.2f}\n"
+                "Accuracy Excluding Unsure: {:.2f}"
+                .format(str(acc_count),
+                        str(total),
+                        str(unsure_count),
+                        acc_count/total * 100.,
+                        acc_count/total_sure_only * 100.,))
 
     print("{} of {} images correctly classified.\n"
           "Accuracy: {:.2f}\n".format(str(acc_count),
