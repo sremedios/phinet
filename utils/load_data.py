@@ -84,7 +84,6 @@ def load_slice_data(data_dir, classes=None):
     class_labels = {}
     i = 0
 
-    FILENAME_LIMIT = 150
     for class_directory in class_directories:
         filename_limiter = 0
 
@@ -98,14 +97,22 @@ def load_slice_data(data_dir, classes=None):
         i += 1
         for filename in os.listdir(class_directory):
             filepath = os.path.join(class_directory, filename)
+            all_filenames.append(filepath)
 
-            if filename_limiter < FILENAME_LIMIT:
-                filename_limiter += 1
-                all_filenames.append(filepath)
 
     img_shape = nib.load(all_filenames[0]).get_data().shape
 
-    total_num_slices = len(all_filenames) * img_shape[-1]
+    total_num_slices = 0
+    # first, just count how many nonzero slices there are
+    print("Counting nonzero slices...")
+    for f in tqdm(all_filenames):
+        img_slices = load_slices(f)
+
+        for img_slice in img_slices:
+            if np.sum(img_slice) > 0:
+                total_num_slices += 1
+
+    # allocate
     print("Trying to allocate array of size {}"
           .format((total_num_slices,) + img_shape[:-1] + (1,)))
     data = np.zeros(shape=((total_num_slices,) + img_shape[:-1] + (1,)),
@@ -118,44 +125,24 @@ def load_slice_data(data_dir, classes=None):
     all_filenames = shuffle(all_filenames, random_state=0)
     indexer = 0
 
+    # then put into array
     for f in tqdm(all_filenames):
         img_slices = load_slices(f)
 
         for img_slice in img_slices:
-            cur_idx = all_indices[indexer]
+            if np.sum(img_slice) != 0:
+                cur_idx = all_indices[indexer]
 
-            data[cur_idx] = img_slice
-            cur_label = f.split(os.sep)[-2]
-            labels[cur_idx] = to_categorical(class_labels[cur_label],
-                                             num_classes=num_classes)
-            all_slice_filenames[cur_idx] = f
-            indexer += 1
+                data[cur_idx] = img_slice
+                cur_label = f.split(os.sep)[-2]
+                labels[cur_idx] = to_categorical(class_labels[cur_label],
+                                                 num_classes=num_classes)
+                all_slice_filenames[cur_idx] = f
+                indexer += 1
 
-    # search for empty slices and remove them from both
-    # data and labels
-    nonempty_data = np.zeros(shape=data.shape, dtype=np.uint8)
-    nonempty_labels = np.zeros(shape=labels.shape, dtype=np.uint8)
-    nonempty_all_slice_filenames = [None] * len(all_slice_filenames)
-
-    idx = 0
-    for cur_slice, cur_label, cur_slice_filename in zip(data,
-                                                        labels,
-                                                        all_slice_filenames):
-        # if non-zero
-        if len(np.argwhere(np.sum(cur_slice) == 0)) == 0:
-            nonempty_data[idx] = cur_slice
-            nonempty_labels[idx] = cur_label
-            nonempty_all_slice_filenames[idx] = cur_slice_filename
-            idx += 1
-
-    # chop off empty slices
-    nonempty_data = nonempty_data[:idx]
-    nonempty_labels = nonempty_labels[:idx]
-    nonempty_all_slice_filenames = nonempty_all_slice_filenames[:idx]
-
-    print(nonempty_data.shape)
-    print(nonempty_labels.shape)
-    return nonempty_data, nonempty_labels, nonempty_all_slice_filenames, num_classes, data[0].shape
+    print(data.shape)
+    print(labels.shape)
+    return data, labels, all_slice_filenames, num_classes, data[0].shape
 
 
 def load_data(data_dir, classes=None):
