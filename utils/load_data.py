@@ -144,7 +144,7 @@ def load_slice_data(data_dir, classes=None):
                       dtype=np.uint8)
     all_slice_filenames = [None] * total_num_slices
     all_indices = np.arange(total_num_slices)
-    all_incides = shuffle(all_indices, random_state=0)
+    all_indices = shuffle(all_indices, random_state=0)
     all_filenames = shuffle(all_filenames, random_state=0)
     indexer = 0
 
