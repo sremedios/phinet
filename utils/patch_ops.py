@@ -95,6 +95,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
             if not os.path.isdir(filepath):
                 all_filenames.append(filepath)
 
+    print("Found {} filenames".format(len(all_filenames)))
+
     img_shape = patch_size
     num_items = len(all_filenames) * num_patches
 

@@ -66,6 +66,8 @@ if __name__ == '__main__':
     class_encodings = get_classes(classes)
     print(class_encodings)
 
+    print("Collecting {} patches per image volume.".format(results.num_patches))
+
     ############### DATA IMPORT ###############
 
     if results.patch_size:
@@ -86,7 +88,7 @@ if __name__ == '__main__':
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 2**5
+    BATCH_SIZE = 2**10
 
     # make predictions with best weights and save results
     preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
@@ -128,7 +130,7 @@ if __name__ == '__main__':
 
     ############### RECORD RESULTS ###############
     # mean of all values must be above this value
-    surety_threshold = .0
+    surety_threshold = .75
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:
@@ -139,8 +141,8 @@ if __name__ == '__main__':
                 # check for surety
                 if surety < surety_threshold:
                     pos = "??"  # unknown
-                    f.write("UNSURE for {:<10} with {:<50}".format(
-                        pos, filename))
+                    f.write("UNSURE for {:<10}".format(
+                        pos))
                     unsure_count += 1
                     total_sure_only -= 1
                     acc_count -= 1
