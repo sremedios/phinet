@@ -40,7 +40,7 @@ if __name__ == '__main__':
     if results.GPUID == None:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     elif results.GPUID == -1:
-        NUM_GPUS = 3
+        NUM_GPUS = 4
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(results.GPUID)
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**8
+    BATCH_SIZE = 2**6
 
     model.fit(X, y,
               epochs=NB_EPOCHS,

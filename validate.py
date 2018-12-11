@@ -102,7 +102,7 @@ if __name__ == '__main__':
         preds = model.predict(X, batch_size=BATCH_SIZE, verbose=0)
 
         # keep only "sure" predictions
-        surety_threshold = .5
+        surety_threshold = .0
         try:
             preds = preds[np.where(
                 np.abs(np.max(preds, axis=1) - np.min(preds, axis=1)) > surety_threshold)]
