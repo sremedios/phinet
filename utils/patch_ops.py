@@ -76,6 +76,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     all_filenames = []
     class_labels = {}
     i = 0
+
+    class_balance_tracker = {}
     for class_directory in class_directories:
         if not os.path.basename(class_directory) in classes:
             print("{} not in {}; omitting.".format(
@@ -85,6 +87,9 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
         class_labels[os.path.basename(class_directory)] = i
         i += 1
+
+        class_balance_tracker[os.path.basename(class_directory)] = 0
+
         for filename in os.listdir(class_directory):
             filepath = os.path.join(class_directory, filename)
             if not os.path.isdir(filepath):
@@ -106,6 +111,9 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     cur = 0
 
     verbose_filename_counter = 0
+
+    NUM_FILES_TO_SHOW = 10
+    NUM_PATCHES_TO_SHOW = 1
     for f in tqdm(all_filenames):
         verbose_counter = 0
 
@@ -122,7 +130,9 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
         for patch in patches:
             # graph patches to ensure proper collection
-            if verbose and verbose_counter < 5 and verbose_filename_counter < 3:
+            if verbose\
+                    and verbose_counter < NUM_PATCHES_TO_SHOW\
+                    and verbose_filename_counter < NUM_FILES_TO_SHOW:
                 print("Current file: {}".format(f))
 
                 # for 3D patches
@@ -143,6 +153,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
             filenames[indices[cur]] = f
             cur += 1
 
+            class_balance_tracker[cur_label] += 1
+
         verbose_filename_counter += 1
 
     print("A total of {} patches collected.".format(len(data)))
@@ -150,6 +162,7 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
     labels = np.array(labels, dtype=np.uint8)
     print(data.shape)
     print(labels.shape)
+    print("# of slices per class:", class_balance_tracker)
 
     return data, labels, filenames, num_classes, data[0].shape
 
@@ -192,7 +205,7 @@ def get_patches(img, filename, patch_size, num_patches=100, num_channels=1):
         timeout_counter = 50
 
         while np.sum(patch) == 0:
-            
+
             if timeout_counter <= 0:
                 print("Failed to find valid patch for {}".format(filename))
                 break
@@ -264,7 +277,7 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
 
         patch = np.zeros((patch_size), dtype=np.uint8)
 
-        while np.sum(patch) == 0:
+        while np.mean(patch) < 40:
 
             if timeout_counter <= 0:
                 print("Failed to find valid patch for {}".format(filename))

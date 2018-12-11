@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     ############### MODEL SELECTION ###############
 
-    LR = 1e-5
+    LR = 1e-4
 
     if results.patch_size:
         patch_size = tuple([int(x) for x in (results.patch_size).split('x')])
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
 
     print(patch_size)
-    verbose = 0
+    verbose = 1
 
     if results.model:
         model = load_model(results.model)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**7
+    BATCH_SIZE = 2**10
 
     model.fit(X, y,
               epochs=NB_EPOCHS,
