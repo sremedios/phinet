@@ -115,7 +115,7 @@ if __name__ == '__main__':
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
                                                               classes=classes,
-                                                              verbose=0)
+                                                              verbose=1)
 
     ############### CALLBACKS ###############
 

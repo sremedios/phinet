@@ -10,7 +10,7 @@ import random
 from tqdm import *
 import numpy as np
 import nibabel as nib
-from .display import show_image
+from .display import show_image, save_image
 from keras.utils import to_categorical
 from sklearn.utils import shuffle
 
@@ -97,7 +97,7 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
     print("Found {} filenames".format(len(all_filenames)))
 
-    inverted_class_label = {v:k for k, v in class_labels.items()}
+    inverted_class_label = {v: k for k, v in class_labels.items()}
 
     img_shape = patch_size
     num_items = len(all_filenames) * num_patches
@@ -116,8 +116,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
     verbose_filename_counter = 0
 
-    NUM_FILES_TO_SHOW = 10
-    NUM_PATCHES_TO_SHOW = 1
+    NUM_FILES_TO_SHOW = 20
+    NUM_PATCHES_TO_SHOW = 3
     for f in tqdm(all_filenames):
         verbose_counter = 0
 
@@ -132,12 +132,13 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
         cur_label = f.split(os.sep)[-2]
 
+        patch_fig_idx = 0
+
         for patch in patches:
             # graph patches to ensure proper collection
             if verbose\
                     and verbose_counter < NUM_PATCHES_TO_SHOW\
                     and verbose_filename_counter < NUM_FILES_TO_SHOW:
-                print("Current file: {}".format(f))
 
                 # for 3D patches
                 if len(patch.shape[:-1]) == 3:
@@ -146,7 +147,13 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
                 # for 2D patches
                 elif len(patch.shape[:-1]) == 2:
-                    show_image(patch[:, :, 0], cur_label)
+                    #show_image(patch[:, :, 0], cur_label)
+                    if not os.path.exists("figs"):
+                        os.makedirs("figs")
+                    dst_path = os.path.join("figs", "{}_class_{}_patch_{}.png".format(
+                        os.path.basename(filename), cur_label, patch_fig_idx))
+                    save_image(patch[:, :, 0], dst_path, cur_label)
+                    patch_fig_idx += 1
 
                 verbose_counter += 1
 
@@ -261,14 +268,14 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
     Returns:
         - patches: ndarray of 2D ndarrays, the resultant 2D patches by their channels
     '''
+
+    # MRI convert makes all image dimensions 256x256x160
+    # given patches are 125x125 axially,
+    # this means we want the std for the gaussians to be 256/4
+    # for horiz and vert and 160/4 for depth
+
     # set random seed and variable params
     random.seed()
-    mu = 0
-    sigma = 25
-
-    # find center of the given image
-    # bias center towards top quarter of brain
-    center_coords = [x//2 for x in img.shape]
 
     # find num_patches random numbers as distances from the center
     patches = np.empty(
@@ -287,14 +294,11 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
                 print("Failed to find valid patch for {}".format(filename))
                 break
 
-            horizontal_displacement = int(random.gauss(mu, sigma))
-            depth_displacement = int(random.gauss(mu, sigma))
-            vertical_displacement = int(random.gauss(mu, sigma//2))
-
-            # current center coords
-            c = [center_coords[0] + horizontal_displacement,
-                 center_coords[1] + depth_displacement,
-                 center_coords[2] + vertical_displacement]
+            c = [
+                int(random.gauss(img.shape[0]//2, img.shape[0]//4)),
+                int(random.gauss(img.shape[1]//2, img.shape[1]//4)),
+                int(random.gauss(img.shape[2]//2, img.shape[2]//4)),
+            ]
 
             # ensure that only valid patches are gathered
             if c[0]+patch_size[0]//2 > img.shape[0] or c[0]-patch_size[0]//2 < 0 or\
