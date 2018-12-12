@@ -115,7 +115,7 @@ if __name__ == '__main__':
                                                               patch_size=patch_size,
                                                               num_patches=results.num_patches,
                                                               classes=classes,
-                                                              verbose=1)
+                                                              verbose=0)
 
     ############### CALLBACKS ###############
 
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     ############### TRAINING ###############
     # the number of epochs is set high so that EarlyStopping can be the terminator
     NB_EPOCHS = 10000000
-    BATCH_SIZE = 2**10
+    BATCH_SIZE = 2**11
 
     model.fit(X, y,
               epochs=NB_EPOCHS,

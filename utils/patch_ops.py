@@ -279,7 +279,7 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
 
         patch = np.zeros((patch_size), dtype=np.uint8)
 
-        while np.mean(patch) < 40:
+        while np.mean(patch) < 15:
 
             if timeout_counter <= 0:
                 print("Failed to find valid patch for {}".format(filename))
