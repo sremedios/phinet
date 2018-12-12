@@ -148,9 +148,10 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
                 # for 2D patches
                 elif len(patch.shape[:-1]) == 2:
                     #show_image(patch[:, :, 0], cur_label)
-                    if not os.path.exists("figs"):
-                        os.makedirs("figs")
-                    dst_path = os.path.join("figs", "{}_class_{}_patch_{}.png".format(
+                    fig_dir = os.path.join("results", "patch_figs")
+                    if not os.path.exists(fig_dir):
+                        os.makedirs(fig_dir)
+                    dst_path = os.path.join(fig_dir, "{}_class_{}_patch_{}.png".format(
                         os.path.basename(filename), cur_label, patch_fig_idx))
                     save_image(patch[:, :, 0], dst_path, cur_label)
                     patch_fig_idx += 1
