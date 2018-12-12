@@ -97,6 +97,8 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
     print("Found {} filenames".format(len(all_filenames)))
 
+    inverted_class_label = {v:k for k, v in class_labels.items()}
+
     img_shape = patch_size
     num_items = len(all_filenames) * num_patches
 
@@ -144,7 +146,7 @@ def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose
 
                 # for 2D patches
                 elif len(patch.shape[:-1]) == 2:
-                    show_image(patch[:, :, 0])
+                    show_image(patch[:, :, 0], cur_label)
 
                 verbose_counter += 1
 
@@ -262,7 +264,7 @@ def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
     # set random seed and variable params
     random.seed()
     mu = 0
-    sigma = 50
+    sigma = 25
 
     # find center of the given image
     # bias center towards top quarter of brain
