@@ -88,7 +88,7 @@ if __name__ == '__main__':
     PRED_DIR = results.OUT_DIR
     if not os.path.exists(PRED_DIR):
         os.makedirs(PRED_DIR)
-    BATCH_SIZE = 2**10
+    BATCH_SIZE = 2**12
 
     # make predictions with best weights and save results
     preds = model.predict(X, batch_size=BATCH_SIZE, verbose=1)
@@ -114,11 +114,19 @@ if __name__ == '__main__':
     # possibly faster, must unit test
     from itertools import groupby
     TOTAL_ELEMENTS = len(set(filenames))
+    for k, v in tqdm(map(lambda pair: (pair[0],
+                                                 np.mean([p[1] for p in pair[1]], axis=0)),
+                                   groupby(zip(filenames, preds), lambda i: i[0])),
+                                   total=TOTAL_ELEMENTS):
+        final_pred_scores[k] = v
+
+    '''
     final_pred_scores = {k: v for k, v in
                          (tqdm(map(lambda pair: (pair[0],
                                                  np.mean([p[1] for p in pair[1]], axis=0)),
                                    groupby(zip(filenames, preds), lambda i: i[0])),
                                total=TOTAL_ELEMENTS))}
+    '''
 
     print("Num filenames: {}".format(len(filenames)))
     print("Num preds: {}".format(len(preds)))
@@ -130,7 +138,7 @@ if __name__ == '__main__':
 
     ############### RECORD RESULTS ###############
     # mean of all values must be above this value
-    surety_threshold = .75
+    surety_threshold = .0
 
     with open(os.path.join(PRED_DIR, now()+"_results.txt"), 'w') as f:
         with open(os.path.join(PRED_DIR, now()+"_results_errors.txt"), 'w') as e:

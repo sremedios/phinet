@@ -18,7 +18,7 @@ def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpu
     inputs = Input(shape=(None,None,num_channels))
 
     # residual nonlinear block
-    x = Conv2D(32, (3,3), strides=(2,2), padding='same')(inputs)
+    x = Conv2D(16, (3,3), strides=(2,2), padding='same')(inputs)
     x = MaxPooling2D(pool_size=(3,3), strides=(1,1), padding='same')(x)
     x = Conv2D(32, (3,3), strides=(2,2), padding='same')(x)
     x = BatchNormalization()(x)
@@ -34,8 +34,8 @@ def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpu
     y = Conv2D(32, (3,3), strides=(1,1), padding='same')(y)
 
     # this layer will preserve original signal
-    z = Conv2D(32, (3,3), strides=(2,2), padding='same')(inputs)
-    z = Conv2D(32, (3,3), strides=(2,2), padding='same')(z)
+    z = Conv2D(8, (3,3), strides=(2,2), padding='same')(inputs)
+    z = Conv2D(16, (3,3), strides=(2,2), padding='same')(z)
     z = Conv2D(32, (3,3), strides=(1,1), padding='same')(z)
 
     x = Concatenate(axis=-1)([x, y, z])
