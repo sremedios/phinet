@@ -1,324 +1,364 @@
-'''
-Samuel Remedios
-NIH CC CNRM
-Patch operations
-'''
-
 import os
-import sys
-import random
-from tqdm import *
 import numpy as np
 import nibabel as nib
-from .display import show_image, save_image
-from keras.utils import to_categorical
 from sklearn.utils import shuffle
+from tqdm import tqdm
+from .pad import *
+import random
+import copy
+from time import strftime, time
+
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import sys
 
 
-def load_patch_data(data_dir, patch_size, classes=None, num_patches=100, verbose=0):
+def PadImage(vol, padsize):
+    dim = vol.shape
+    padsize = np.asarray(padsize, dtype=int)
+    dim2 = dim+2*padsize
+    temp = np.zeros(dim2, dtype=float)
+    temp[padsize:dim[0]+padsize,
+         padsize:dim[1]+padsize,
+         padsize:dim[2]+padsize] = vol
+    return temp
+
+
+def get_intersection(a, b):
     '''
-    Loads in datasets and returns the labeled preprocessed patches for use in the model.
+    Gets intersection of coordinate arrays a and b returned from np.nonzero()-style functions.
+    Used to find valid centers for healthy patches.
 
-    Determines the number of classes for the problem and assigns labels to each class,
-    sorted alphabetically.
-
-    This handles both 2D and 3D patches.
+    TODO: CURRENTLY ONLY WORKS ON 3D ARRAYS
 
     Params:
-        - data_dir: string, path to all training class directories
-        - patch_size: N-element tuple of integers, size of patches to use for training
-                      where N == dimension of patches to extract
-        - num_patches: integer, number of patches to extract from each image
-        - verbose: integer, 0 or 1, display middle slide of extracted patch
+        - a: tuple of N np.arrays, where N is the dimension of the original image
+        - b: tuple of N np.arrays, where N is the dimension of the original image
     Returns:
-        - data: list of ndarrays, the patches of images to use for training
-        - labels: list of 1D ndarrays, one-hot encoding corresponding to classes
-        - all_filenames: list of strings, corresponding filenames for use in validation/test
+        - intersection: set of tuples of rank N, where N is the dimension of the original image
+    '''
+    # TODO: this is the slowest operation
+    start_time = time()
+    print(np.array(a).shape)
+    print(np.array(b).shape)
+
+    if len(a) == 3:
+        # first change format to be a list of coordinates rather than one list per dimension
+        a_reformat = [(x, y, z) for x, y, z in zip(a[0], a[1], a[2])]
+        b_reformat = [(x, y, z) for x, y, z in zip(b[0], b[1], b[2])]
+    elif len(a) == 2:
+        a_reformat = [(x, y) for x, y in zip(a[0], a[1])]
+        b_reformat = [(x, y) for x, y in zip(b[0], b[1])]
+    else:  # TODO: proper error handling
+        print("Shape mismatch")
+
+    intersection = set(a_reformat) & set(b_reformat)
+    print("Time taken to calculate intersection:",
+          time() - start_time, "seconds")
+
+    return intersection
+
+
+def get_center_coords(ct, mask, ratio):
+    '''
+    Gets coordinates for center pixel of all patches.
+
+    Params:
+        - ct: 3D ndarray, image data from which to find healthy coordinates
+        - mask: 3D ndarray, image data from which to find coordinates
+        - ratio: float in [0,1].
+                 If 0 or 1, skip intersection calculation for speed
+    Returns:
+        - healthy_coords: set of tuples of rank 3, coordinates of healthy voxels
+        - lesion_coords: set of tuples of rank 3, coordinates of lesion voxels
     '''
 
-    labels = []
+    # These first two must be shuffled.
+    if ratio == 1:
+        # ct-valid patches
+        ct_possible_centers = np.nonzero(ct)
+        healthy_coords = [(x, y, z) for x, y, z in zip(ct_possible_centers[0],
+                                                       ct_possible_centers[1],
+                                                       ct_possible_centers[2])]
+        healthy_coords = set(shuffle(healthy_coords, random_state=0))
+        lesion_coords = {(0, 0, 0), (0, 0, 0), (0, 0, 0), }
+    elif ratio == 0:
+        healthy_coords = {(0, 0, 0), (0, 0, 0), (0, 0, 0), }
+        # mask lesion patches
+        lesion_coords = np.nonzero(mask)
+        # cuurently only works for 3D input images
+        lesion_coords = [(x, y, z) for x, y, z in zip(lesion_coords[0],
+                                                      lesion_coords[1],
+                                                      lesion_coords[2])]
+        lesion_coords = set(shuffle(lesion_coords, random_state=0))
+    else:
+        # ct-valid patches
+        ct_possible_centers = np.nonzero(ct)
+        zeros_coords = np.where(mask == 0)
+        healthy_coords = get_intersection(ct_possible_centers, zeros_coords)
+        # mask lesion patches
+        lesion_coords = np.nonzero(mask)
+        # currently only works for 3D input images
+        # This does not need to be shuffled since it will be shuffled later
+        lesion_coords = set([(x, y, z) for x, y, z in zip(lesion_coords[0],
+                                                          lesion_coords[1],
+                                                          lesion_coords[2])])
 
-    #################### CLASSIFICATION OF UNKNOWN DATA ####################
+    return healthy_coords, lesion_coords
 
-    if classes is None:
-        all_filenames = []
-        data = []
-        filenames = [x for x in os.listdir(data_dir)
-                     if not os.path.isdir(os.path.join(data_dir, x))]
-        filenames.sort()
 
-        for f in tqdm(filenames):
-            img = nib.load(os.path.join(robustfov_dir, f)).get_data()
-            patches = get_patches(img, f, patch_size, num_patches)
+def get_patches(invols, mask, patchsize, maxpatch, num_channels):
+    rng = random.SystemRandom()
 
-            for patch in tqdm(patches):
-                data.append(patch)
-                all_filenames.append(f)
+    mask = np.asarray(mask, dtype=np.float32)
+    patch_size = np.asarray(patchsize, dtype=int)
+    dsize = np.floor(patch_size/2).astype(dtype=int)
 
-        print("A total of {} patches collected.".format(len(data)))
+    # find indices of all lesions in mask volume
+    mask_lesion_indices = np.nonzero(mask)
+    mask_lesion_indices = np.asarray(mask_lesion_indices, dtype=int)
+    total_lesion_patches = len(mask_lesion_indices[0])
 
-        data = np.array(data)
+    num_patches = np.minimum(maxpatch, total_lesion_patches)
+    '''
+    print("Number of patches used: {} out of {} (max: {})"
+          .format(num_patches,
+                  total_lesion_patches,
+                  maxpatch))
+    '''
 
-        return data, all_filenames
+    randidx = rng.sample(range(0, total_lesion_patches), num_patches)
+    # here, 3 corresponds to each axis of the 3D volume
+    shuffled_mask_lesion_indices = np.ndarray((3, num_patches))
+    for i in range(0, num_patches):
+        for j in range(0, 3):
+            shuffled_mask_lesion_indices[j,
+                                         i] = mask_lesion_indices[j, randidx[i]]
+    shuffled_mask_lesion_indices = np.asarray(
+        shuffled_mask_lesion_indices, dtype=int)
 
-    #################### TRAINING OR VALIDATION ####################
+    # mask out all lesion indices to get all healthy indices
+    tmp = copy.deepcopy(invols[0])
+    tmp[tmp > 0] = 1
+    tmp[tmp <= 0] = 0
+    tmp = np.multiply(tmp, 1-mask)
 
-    # determine number of classes
-    class_directories = [os.path.join(data_dir, x)
-                         for x in os.listdir(data_dir) if os.path.basename(x) in classes]
-    class_directories.sort()
+    healthy_brain_indices = np.nonzero(tmp)
+    healthy_brain_indices = np.asarray(healthy_brain_indices, dtype=int)
+    num_healthy_indices = len(healthy_brain_indices[0])
 
-    print(class_directories)
-    print(classes)
-    num_classes = len(classes)
+    randidx0 = rng.sample(range(0, num_healthy_indices), num_patches)
+    # here, 3 corresponds to each axis of the 3D volume
+    shuffled_healthy_brain_indices = np.ndarray((3, num_patches))
+    for i in range(0, num_patches):
+        for j in range(0, 3):
+            shuffled_healthy_brain_indices[j,
+                                           i] = healthy_brain_indices[j, randidx0[i]]
+    shuffled_healthy_brain_indices = np.asarray(
+        shuffled_healthy_brain_indices, dtype=int)
 
-    # set up all_filenames and class_labels to speed up shuffling
-    all_filenames = []
-    class_labels = {}
-    i = 0
+    newidx = np.concatenate([shuffled_mask_lesion_indices,
+                             shuffled_healthy_brain_indices], axis=1)
 
-    class_balance_tracker = {}
-    for class_directory in class_directories:
-        if not os.path.basename(class_directory) in classes:
-            print("{} not in {}; omitting.".format(
-                os.path.basename(class_directory),
-                classes))
+    CT_matsize = (2*num_patches, patchsize[0], patchsize[1], num_channels)
+    Mask_matsize = (2*num_patches, patchsize[0], patchsize[1], 1)
+
+    #CTPatches = np.ndarray(CT_matsize, dtype=np.float16)
+    #MaskPatches = np.ndarray(Mask_matsize, dtype=np.float16)
+
+    CTPatches = []
+    MaskPatches = []
+
+    for i in range(0, 2*num_patches):
+        I = newidx[0, i]
+        J = newidx[1, i]
+        K = newidx[2, i]
+
+        if I - dsize[0] < 0 or\
+                I + dsize[0] > invols[0].shape[0] or\
+                J - dsize[1] < 0 or\
+                J + dsize[1] > invols[0].shape[1]:
+                    continue
+
+        if np.sum(
+            invols[0][I - dsize[0]: I + dsize[0],
+                      J - dsize[1]: J + dsize[1],
+                      K]
+                ) == 0:
             continue
 
-        class_labels[os.path.basename(class_directory)] = i
-        i += 1
+        for c in range(num_channels):
+            CTPatches.append(invols[c][I - dsize[0]: I + dsize[0],
+                                              J - dsize[1]: J + dsize[1],
+                                              K])
+        MaskPatches.append(mask[I - dsize[0]: I + dsize[0],
+                                       J - dsize[1]:J + dsize[1],
+                                       K])
 
-        class_balance_tracker[os.path.basename(class_directory)] = 0
+    #CTPatches = np.asarray(CTPatches, dtype=np.float16)
+    #MaskPatches = np.asarray(MaskPatches, dtype=np.float16)
 
-        for filename in os.listdir(class_directory):
-            filepath = os.path.join(class_directory, filename)
-            if not os.path.isdir(filepath):
-                all_filenames.append(filepath)
+    return CTPatches, MaskPatches
 
-    print("Found {} filenames".format(len(all_filenames)))
+def get_slices(img_vol, target_size):
+    num_z_steps = img_vol.shape[2]
 
-    inverted_class_label = {v: k for k, v in class_labels.items()}
+    slices = []
+    for z in range(num_z_steps):
+        sl = img_vol[:, :, z]
+        sl = pad_crop_image_2D(sl, target_size)
 
-    img_shape = patch_size
-    num_items = len(all_filenames) * num_patches
+        if np.sum(sl) > 0:
+            slices.append(sl)
 
-    data = np.zeros(shape=((num_items,) + img_shape + (1,)), dtype=np.uint8)
-    labels = np.zeros((num_items,) + (num_classes,), dtype=np.uint8)
-    filenames = [None] * num_items
+    slices = np.array(slices)
+    slices = np.reshape(slices, slices.shape + (1,))
 
-    print(data.shape)
-    print(labels.shape)
+    return slices
 
-    all_filenames = shuffle(all_filenames, random_state=0)
-    indices = np.arange(num_items)
+
+def get_nonoverlapping_patches(img_vol, patch_size):
+    '''
+    Gets all 2D non-overlapping, non-zero patches of `patchsize` from `img`
+    '''
+    num_x_steps = img_vol.shape[0] // patch_size[0]
+    num_y_steps = img_vol.shape[1] // patch_size[1]
+    num_z_steps = img_vol.shape[2]
+
+    patches = []
+    for z in range(num_z_steps):
+        for x in range(0, img_vol.shape[0] - patch_size[0] + 1, patch_size[0]):
+            for y in range(0, img_vol.shape[1] - patch_size[1] + 1, patch_size[1]):
+                patch = img_vol[
+                    x:x+patch_size[0],
+                    y:y+patch_size[1],
+                    z
+                ]
+
+                if np.sum(patch) > 0:
+                    patches.append(patch)
+
+    patches = np.array(patches)
+    if len(patches.shape) != 3:
+        return np.zeros((1, *patch_size))
+    patches = np.rollaxis(patches, 2, -1)
+    patches = np.reshape(patches, patches.shape + (1,))
+
+
+    return patches
+
+
+def CreatePatchesForTraining(atlasdir, plane, patchsize, max_patch=150000, num_channels=1):
+    '''
+
+    Params:
+        - TODO
+        - healthy: bool, False if not going over the healthy dataset, true otherwise
+
+    '''
+
+    # get filenames
+    ct_names = os.listdir(atlasdir)
+    mask_names = os.listdir(atlasdir)
+
+    ct_names = [x for x in ct_names if "CT" in x]
+    mask_names = [x for x in mask_names if "mask" in x]
+
+    ct_names.sort()
+    mask_names.sort()
+
+    numatlas = len(ct_names)
+
+    patchsize = np.asarray(patchsize, dtype=int)
+    padsize = np.max(patchsize + 1)  # / 2
+
+    # calculate total number of voxels for all images to pre-allocate array
+    f = 0
+    for i in range(0, numatlas):
+        maskname = mask_names[i]
+        maskname = os.path.join(atlasdir, maskname)
+        temp = nib.load(maskname)
+        mask = temp.get_data()
+        f = f + np.sum(mask)
+
+    print("Total number of lesion patches =", f)
+    total_num_patches = int(np.minimum(max_patch * numatlas, f))
+    single_subject_num_patches = total_num_patches // numatlas
+    print("Allowed total number of patches =", total_num_patches)
+
+    # note here we double the size of the tensors to allow for healthy patches too
+    doubled_num_patches = total_num_patches * 2
+    if plane == "axial":
+        CT_matsize = (doubled_num_patches,
+                      patchsize[0], patchsize[1], num_channels)
+        Mask_matsize = (doubled_num_patches, patchsize[0], patchsize[1], 1)
+    elif plane == "sagittal":
+        CT_matsize = (doubled_num_patches,
+                      patchsize[0], 16, num_channels)
+        Mask_matsize = (doubled_num_patches, patchsize[0], 16, 1)
+    elif plane == "coronal":
+        CT_matsize = (doubled_num_patches,
+                      16, patchsize[1], num_channels)
+        Mask_matsize = (doubled_num_patches, 16, patchsize[1], 1)
+
+    CTPatches = np.zeros(CT_matsize, dtype=np.float16)
+    MaskPatches = np.zeros(Mask_matsize, dtype=np.float16)
+
+    indices = [x for x in range(doubled_num_patches)]
     indices = shuffle(indices, random_state=0)
-    cur = 0
+    cur_idx = 0
 
-    verbose_filename_counter = 0
+    # interpret plane
+    planar_codes = {"axial": (0, 1, 2),
+                    "sagittal": (1, 2, 0),
+                    "coronal": (2, 0, 1)}
+    planar_code = planar_codes[plane]
 
-    NUM_FILES_TO_SHOW = 20
-    NUM_PATCHES_TO_SHOW = 3
-    for f in tqdm(all_filenames):
-        verbose_counter = 0
+    for i in tqdm(range(0, numatlas)):
+        ctname = ct_names[i]
+        ctname = os.path.join(atlasdir, ctname)
 
-        img = nib.load(f).get_data()
-        if len(patch_size) == 3:
-            patches = get_patches(img, f, patch_size, num_patches)
-        elif len(patch_size) == 2:
-            patches = get_patches_2D(img, f, patch_size, num_patches)
-        else:
-            print("Invalid patch size supplied.  Exiting.")
-            sys.exit()
+        temp = nib.load(ctname)
+        ct = temp.get_data()
+        ct = np.asarray(ct, dtype=np.float16)
 
-        cur_label = f.split(os.sep)[-2]
+        maskname = mask_names[i]
+        maskname = os.path.join(atlasdir, maskname)
+        temp = nib.load(maskname)
+        mask = temp.get_data()
+        mask = np.asarray(mask, dtype=np.float16)
 
-        patch_fig_idx = 0
+        # here, need to ensure that the CT and mask tensors
+        # are padded out to larger than the size of the requested
+        # patches, to allow for patches to be gathered from edges
+        ct = PadImage(ct, padsize)
+        mask = PadImage(mask, padsize)
 
-        for patch in patches:
-            # graph patches to ensure proper collection
-            if verbose\
-                    and verbose_counter < NUM_PATCHES_TO_SHOW\
-                    and verbose_filename_counter < NUM_FILES_TO_SHOW:
+        ct = np.transpose(ct, axes=planar_code)
+        mask = np.transpose(mask, axes=planar_code)
 
-                # for 3D patches
-                if len(patch.shape[:-1]) == 3:
-                    middle_slice_idx = patch.shape[2]//2
-                    show_image(patch[:, :, middle_slice_idx, 0])
+        invols = [ct]  # can handle multichannel here
 
-                # for 2D patches
-                elif len(patch.shape[:-1]) == 2:
-                    #show_image(patch[:, :, 0], cur_label)
-                    fig_dir = os.path.join("results", "patch_figs")
-                    if not os.path.exists(fig_dir):
-                        os.makedirs(fig_dir)
-                    dst_path = os.path.join(fig_dir, "{}_class_{}_patch_{}.png".format(
-                        os.path.basename(filename), cur_label, patch_fig_idx))
-                    save_image(patch[:, :, 0], dst_path, cur_label)
-                    patch_fig_idx += 1
+        # adjusting patch size after transpose
+        if planar_code != planar_codes["axial"]:
+            if ct.shape[0] < ct.shape[1]:
+                patchsize = (ct.shape[0]//4, patchsize[1])
+            if ct.shape[1] < ct.shape[0]:
+                patchsize = (patchsize[0], ct.shape[1]//4)
+        patchsize = np.asarray(patchsize, dtype=int)
 
-                verbose_counter += 1
+        CTPatchesA, MaskPatchesA = get_patches(invols,
+                                               mask,
+                                               patchsize,
+                                               single_subject_num_patches,
+                                               num_channels,)
 
-            data[indices[cur]] = patch
-            labels[indices[cur]] = to_categorical(
-                class_labels[cur_label], num_classes=num_classes)
+        CTPatchesA = np.asarray(CTPatchesA, dtype=np.float16)
+        MaskPatchesA = np.asarray(MaskPatchesA, dtype=np.float16)
 
-            filenames[indices[cur]] = f
-            cur += 1
+        for ct_patch, mask_patch in zip(CTPatchesA, MaskPatchesA):
+            CTPatches[indices[cur_idx], :, :, :] = ct_patch
+            MaskPatches[indices[cur_idx], :, :, :] = mask_patch
+            cur_idx += 1
 
-            class_balance_tracker[cur_label] += 1
-
-        verbose_filename_counter += 1
-
-    print("A total of {} patches collected.".format(len(data)))
-
-    labels = np.array(labels, dtype=np.uint8)
-    print(data.shape)
-    print(labels.shape)
-    print("# of slices per class:", class_balance_tracker)
-
-    return data, labels, filenames, num_classes, data[0].shape
-
-
-def get_patches(img, filename, patch_size, num_patches=100, num_channels=1):
-    '''
-    Gets num_patches 3D patches of the input image for classification.
-
-    Patches may overlap.
-
-    The center of each patch is some random distance from the center of
-    the entire image, where the random distance is drawn from a Gaussian dist.
-
-    Params:
-        - img: 3D ndarray, the image data from which to get patches
-        - filename: string, name of the file from which patches are acquired
-        - patch_size: 3-element tuple of integers, size of the 3D patch to get
-        - num_patches: integer (default=100), number of patches to retrieve
-        - num_channels: integer (default=1), number of channels in each image
-    Returns:
-        - patches: ndarray of 4D ndarrays, the resultant 3D patches by their channels
-    '''
-    # set random seed and variable params
-    random.seed()
-    mu = 0
-    sigma = 50
-
-    # find center of the given image
-    # bias center towards top quarter of brain
-    center_coords = [x//2 for x in img.shape]
-
-    # find num_patches random numbers as distances from the center
-    patches = np.empty(
-        (num_patches, *patch_size, num_channels), dtype=np.uint8)
-    for i in range(num_patches):
-
-        patch = np.zeros((patch_size), dtype=np.uint8)
-
-        # limit the number of attempts to gather a patch
-        timeout_counter = 50
-
-        while np.sum(patch) == 0:
-
-            if timeout_counter <= 0:
-                print("Failed to find valid patch for {}".format(filename))
-                break
-
-            horizontal_displacement = int(random.gauss(mu, sigma))
-            depth_displacement = int(random.gauss(mu, sigma))
-            vertical_displacement = int(random.gauss(mu, sigma//2))
-
-            # current center coords
-            c = [center_coords[0] + horizontal_displacement,
-                 center_coords[1] + depth_displacement,
-                 center_coords[2] + vertical_displacement]
-
-            # ensure that only valid patches are gathered
-            if c[0]+patch_size[0]//2 > img.shape[0] or c[0]-patch_size[0]//2 < 0 or\
-               c[1]+patch_size[1]//2 > img.shape[1] or c[1]-patch_size[1]//2 < 0 or\
-               c[2]+patch_size[2]//2 > img.shape[2] or c[2]-patch_size[2]//2 < 0 or\
-               img[c[0]-patch_size[0]//2:c[0]+patch_size[0]//2+1,
-                   c[1]-patch_size[1]//2:c[1]+patch_size[1]//2+1,
-                   c[2]-patch_size[2]//2:c[2]+patch_size[2]//2+1, ].shape != patch_size:
-                continue
-
-            # get patch
-            patch = img[c[0]-patch_size[0]//2:c[0]+patch_size[0]//2+1,
-                        c[1]-patch_size[1]//2:c[1]+patch_size[1]//2+1,
-                        c[2]-patch_size[2]//2:c[2]+patch_size[2]//2+1, ]
-
-        # TODO: currently only works for one channel
-        patches[i, :, :, :, 0] = patch
-
-    return patches
-
-
-def get_patches_2D(img, filename, patch_size, num_patches=100, num_channels=1):
-    '''
-    Gets num_patches 2D patches of the input image for classification.
-
-    Patches may overlap.
-
-    The center of each patch is some random distance from the center of
-    the entire image, where the random distance is drawn from a Gaussian dist.
-
-    Params:
-        - img: 3D ndarray, the image data from which to get patches
-        - filename: string, name of the file from which patches are acquired
-        - patch_size: 2-element tuple of integers, size of the 2D patch to get
-        - num_patches: integer (default=100), number of patches to retrieve
-        - num_channels: integer (default=1), number of channels in each image
-    Returns:
-        - patches: ndarray of 2D ndarrays, the resultant 2D patches by their channels
-    '''
-
-    # MRI convert makes all image dimensions 256x256x160
-    # given patches are 125x125 axially,
-    # this means we want the std for the gaussians to be 256/4
-    # for horiz and vert and 160/4 for depth
-
-    # set random seed and variable params
-    random.seed()
-
-    # find num_patches random numbers as distances from the center
-    patches = np.empty(
-        (num_patches, *patch_size, num_channels), dtype=np.uint8)
-
-    for i in range(num_patches):
-
-        # limit the number of attempts to gather a patch
-        timeout_counter = 50
-
-        patch = np.zeros((patch_size), dtype=np.uint8)
-
-        while np.mean(patch) < 15:
-
-            if timeout_counter <= 0:
-                print("Failed to find valid patch for {}".format(filename))
-                break
-
-            c = [
-                int(random.gauss(img.shape[0]//2, img.shape[0]//4)),
-                int(random.gauss(img.shape[1]//2, img.shape[1]//4)),
-                int(random.gauss(img.shape[2]//2, img.shape[2]//4)),
-            ]
-
-            # ensure that only valid patches are gathered
-            if c[0]+patch_size[0]//2 > img.shape[0] or c[0]-patch_size[0]//2 < 0 or\
-               c[1]+patch_size[1]//2 > img.shape[1] or c[1]-patch_size[1]//2 < 0 or\
-               c[2] >= img.shape[2] or c[2] < 0:
-                timeout_counter -= 1
-                continue
-            if img[c[0]-patch_size[0]//2:c[0]+patch_size[0]//2+1,
-                   c[1]-patch_size[1]//2:c[1]+patch_size[1]//2+1,
-                   c[2]].shape != patch_size:
-                timeout_counter -= 1
-                continue
-
-            # get patch
-            patch = img[c[0]-patch_size[0]//2:c[0]+patch_size[0]//2+1,
-                        c[1]-patch_size[1]//2:c[1]+patch_size[1]//2+1,
-                        c[2], ]
-
-        # TODO: currently only works for one channel
-        patches[i, :, :, 0] = patch
-
-    return patches
+    return (CTPatches, MaskPatches)

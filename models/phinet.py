@@ -1,125 +1,128 @@
-from keras.engine import Input, Model
-from keras.layers import Conv3D, MaxPooling3D, GlobalAveragePooling3D,\
-                         GlobalMaxPooling3D, AveragePooling3D, Dense, Flatten
-from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D,\
-                         GlobalMaxPooling2D, AveragePooling2D, Dense, Flatten
-from keras.layers.normalization import BatchNormalization
-from keras.layers.core import Reshape, Activation
-from keras.layers.merge import Concatenate, add
-from keras.layers.advanced_activations import LeakyReLU
-from keras.optimizers import Adam
-import keras.backend as K
+from tensorflow.keras.layers import (
+    Input,
+    Conv2D,
+    MaxPooling2D,
+    AveragePooling2D,
+    GlobalAveragePooling2D,
+    GlobalMaxPooling2D,
+    UpSampling2D,
+    BatchNormalization,
+    add,
+    Dropout,
+    Activation,
+    Dense,
+    concatenate,
+)
+from tensorflow.keras.models import Model
+from tensorflow.keras import regularizers
 
-from .multi_gpu import ModelMGPU
-import json
+def residual_block(prev_layer, repetitions, num_filters):
+    block = prev_layer
+    for i in range(repetitions):
+        x = Conv2D(
+            filters=num_filters,
+            kernel_size=3,
+            kernel_regularizer=regularizers.l2(1e-2),
+            bias_regularizer=regularizers.l2(1e-2),
+            strides=1,
+            padding='same'
+        )(block)
+        y = Activation('relu')(x)
+        x = Conv2D(
+            filters=num_filters,
+            kernel_size=3,
+            kernel_regularizer=regularizers.l2(1e-2),
+            bias_regularizer=regularizers.l2(1e-2),
+            strides=1,
+            padding='same'
+        )(x)
+        x = add([x, y])
+        x = Activation('relu')(x)
+        block = MaxPooling2D(pool_size=3, strides=2, padding='same')(x)
 
-def phinet_2D(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1, verbose=1):
+    return block
 
-    inputs = Input(shape=(None,None,num_channels))
+def pooling_block(prev_layer, repetitions, num_filters):
+    block = prev_layer
+    for i in range(repetitions):
+        block = MaxPooling2D(
+            pool_size=5,
+            strides=2,
+            padding='same'
+        )(block)
 
-    # residual nonlinear block
-    x = Conv2D(16, (3,3), strides=(2,2), padding='same')(inputs)
-    x = MaxPooling2D(pool_size=(3,3), strides=(1,1), padding='same')(x)
-    x = Conv2D(32, (3,3), strides=(2,2), padding='same')(x)
-    x = BatchNormalization()(x)
-    y = Activation('relu')(x)
-    x = Conv2D(32, (3,3), strides=(1,1), padding='same')(y)
-    x = BatchNormalization()(x)
-    x = add([x, y])
-    x = Activation('relu')(x)
 
-    # this block will pool a handful of times to get the "big picture" 
-    y = MaxPooling2D(pool_size=(5,5), strides=(2,2), padding='same')(inputs)
-    y = AveragePooling2D(pool_size=(3,3), strides=(2,2), padding='same')(y)
-    y = Conv2D(32, (3,3), strides=(1,1), padding='same')(y)
+    block = Conv2D(
+        filters=num_filters,
+        kernel_size=3,
+        kernel_regularizer=regularizers.l2(1e-2),
+        bias_regularizer=regularizers.l2(1e-2),
+        strides=1,
+        padding='same'
+    )(block)
 
-    # this layer will preserve original signal
-    z = Conv2D(8, (3,3), strides=(2,2), padding='same')(inputs)
-    z = Conv2D(16, (3,3), strides=(2,2), padding='same')(z)
-    z = Conv2D(32, (3,3), strides=(1,1), padding='same')(z)
+    block = Activation('relu')(block)
 
-    x = Concatenate(axis=-1)([x, y, z])
+    return block
+
+def linear_block(prev_layer, repetitions, num_filters):
+    block = prev_layer
+    for i in range(repetitions):
+        block = Conv2D(
+            filters=num_filters * (2**i),
+            kernel_size=3,
+            kernel_regularizer=regularizers.l2(1e-2),
+            bias_regularizer=regularizers.l2(1e-2),
+            strides=2,
+            padding='same'
+        )(block)
+
+    return block
+
+
+
+def phinet(num_classes, ds):
+    inputs = Input(shape=(None, None, 1))
+    x = Conv2D(
+        filters=64//ds,
+        kernel_size=7,
+        kernel_regularizer=regularizers.l2(1e-2),
+        bias_regularizer=regularizers.l2(1e-2),
+        strides=2,
+        padding='same',
+        activation='relu',
+    )(inputs)
+    block_0 = MaxPooling2D(pool_size=3, strides=2, padding='same')(x)
+
+    repetitions = 2
+    num_filters = 64//ds
+
+    # Residual branch
+    x = residual_block(
+        prev_layer=block_0, 
+        repetitions=repetitions, 
+        num_filters=num_filters)
+
+    # Pooling branch
+    y = pooling_block(
+        prev_layer=block_0, 
+        repetitions=repetitions, 
+        num_filters=num_filters
+    )
+
+    # Linear branch
+    z = linear_block(
+        prev_layer=block_0, 
+        repetitions=repetitions, 
+        num_filters=num_filters
+    )
+
+    x = concatenate([x, y, z], axis=-1)
 
     # global avg pooling before FC
-    x = GlobalAveragePooling2D()(x)
-    x = Dense(n_classes)(x)
-
-    pred = Activation('softmax')(x)
+    x = GlobalMaxPooling2D()(x)
+    outputs = Dense(num_classes)(x)
     
-    model = Model(inputs=inputs, outputs=pred)
-
-    model.compile(optimizer=Adam(lr=learning_rate),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-
-    # save json before checking if multi-gpu
-    json_string = model.to_json()
-    with open(model_path, 'w') as f:
-        json.dump(json_string, f)
-
-    if verbose:
-        print(model.summary())
-
-    # recompile if multi-gpu model
-    if num_gpus > 1:
-        model = ModelMGPU(model, num_gpus)
-        model.compile(optimizer=Adam(lr=learning_rate),
-                      loss='categorical_crossentropy',
-                      metrics=['accuracy'])
-        
-    return model
-
-def phinet(n_classes, model_path, num_channels=1, learning_rate=1e-3, num_gpus=1, verbose=1):
-    inputs = Input(shape=(None,None,None,num_channels))
-
-    x = Conv3D(8, (3,3,3), strides=(2,2,2), padding='same')(inputs)
-    x = MaxPooling3D(pool_size=(3,3,3), strides=(1,1,1), padding='same')(x)
-
-    x = Conv3D(16, (3,3,3), strides=(2,2,2), padding='same')(x)
-    x = BatchNormalization()(x)
-    y = Activation('relu')(x)
-    x = Conv3D(16, (3,3,3), strides=(1,1,1), padding='same')(y)
-    x = BatchNormalization()(x)
-    x = add([x, y])
-    x = Activation('relu')(x)
-
-    # this block will pool a handful of times to get the "big picture" 
-    y = MaxPooling3D(pool_size=(5,5,5), strides=(2,2,2), padding='same')(inputs)
-    y = AveragePooling3D(pool_size=(3,3,3), strides=(2,2,2), padding='same')(y)
-    y = Conv3D(16, (3,3,3), strides=(1,1,1), padding='same')(y)
-
-    # this layer will preserve original signal
-    z = Conv3D(8, (3,3,3), strides=(2,2,2), padding='same')(inputs)
-    z = Conv3D(12, (3,3,3), strides=(2,2,2), padding='same')(z)
-    z = Conv3D(16, (3,3,3), strides=(1,1,1), padding='same')(z)
-
-    x = Concatenate(axis=4)([x, y, z])
-
-    # global avg pooling before FC
-    x = GlobalAveragePooling3D()(x)
-    x = Dense(n_classes)(x)
-
-    pred = Activation('softmax')(x)
-    
-    model = Model(inputs=inputs, outputs=pred)
-
-    model.compile(optimizer=Adam(lr=learning_rate),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
-
-    # save json before checking if multi-gpu
-    json_string = model.to_json()
-    with open(model_path, 'w') as f:
-        json.dump(json_string, f)
-
-    if verbose:
-        print(model.summary())
-
-    # recompile if multi-gpu model
-    if num_gpus > 1:
-        model = ModelMGPU(model, num_gpus)
-        model.compile(optimizer=Adam(lr=learning_rate),
-                      loss='categorical_crossentropy',
-                      metrics=['accuracy'])
+    model = Model(inputs=inputs, outputs=outputs)
 
     return model
