@@ -6,3 +6,4 @@ sorting_example/*
 **/__pycache__/*
 validation_results/*
 class_encodings.txt
+**/*.txt
