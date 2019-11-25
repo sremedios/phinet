@@ -201,9 +201,28 @@ def get_patches(invols, mask, patchsize, maxpatch, num_channels):
     return CTPatches, MaskPatches
 
 def get_slices(img_vol, target_size):
+    slices = []
+    
+    num_x_steps = img_vol.shape[0]
+
+    for x in range(num_x_steps):
+        sl = img_vol[x, :, :]
+        sl = pad_crop_image_2D(sl, target_size)
+
+        if np.sum(sl) > 0:
+            slices.append(sl)
+
+    num_y_steps = img_vol.shape[1]
+
+    for y in range(num_y_steps):
+        sl = img_vol[:, y, :]
+        sl = pad_crop_image_2D(sl, target_size)
+
+        if np.sum(sl) > 0:
+            slices.append(sl)
+
     num_z_steps = img_vol.shape[2]
 
-    slices = []
     for z in range(num_z_steps):
         sl = img_vol[:, :, z]
         sl = pad_crop_image_2D(sl, target_size)

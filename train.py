@@ -119,6 +119,7 @@ if __name__ == "__main__":
                 num_labels=num_classes))\
             .shuffle(BUFFER_SIZE)\
             .batch(BATCH_SIZE_PER_REPLICA)\
+            .take(8)\
 
         val_dataset = tf.data.TFRecordDataset(
                 VAL_TF_RECORD_FILENAME.format(cur_fold))\
@@ -126,6 +127,7 @@ if __name__ == "__main__":
                 record,
                 instance_size,
                 num_labels=num_classes))\
+            .take(16)\
 
         '''
         for f in augmentations:
@@ -137,12 +139,16 @@ if __name__ == "__main__":
                     ), num_parallel_calls=4,)
         '''
 
-        num_elements = 1920 * 160 #1920 volumes * 160 slices per volume
+        num_elements = 1920 * 256 * 3 #1920 volumes * all slices per volume
 
         ######### DISTRIBUTE SETUP #########
 
-        train_dist_dataset = strategy.experimental_distribute_dataset(train_dataset)
-        val_dist_dataset = strategy.experimental_distribute_dataset(val_dataset)
+        train_dist_dataset = strategy.experimental_distribute_dataset(
+                train_dataset
+        )
+        val_dist_dataset = strategy.experimental_distribute_dataset(
+                val_dataset
+        )
 
         with strategy.scope():
             # metrics
@@ -185,6 +191,51 @@ if __name__ == "__main__":
                     x,
                 )
 
+
+                ''' 
+                # The val TFRecord already wrote all slice orientations
+                # as 2D slices. This commented-out code is redundant and
+                # will actually error-out.
+                # It will be useful later in the test.py code though.
+                # IE: This will work if the data is saved as a volume
+                # but will break if operating over slices
+                axial_logits = tf.map_fn(
+                    lambda cur_slice: model(
+                        tf.reshape(
+                            cur_slice, 
+                            (1,) + tuple(cur_slice.shape.as_list())
+                        ), 
+                        training=False
+                    ),
+                    x,
+                )
+                coronal_logits = tf.map_fn(
+                    lambda cur_slice: model(
+                        tf.reshape(
+                            cur_slice, 
+                            (1,) + tuple(cur_slice.shape.as_list())
+                        ), 
+                        training=False
+                    ),
+                    tf.transpose(x, perm=(1,2,0,3)),
+                )
+                sagittal_logits = tf.map_fn(
+                    lambda cur_slice: model(
+                        tf.reshape(
+                            cur_slice, 
+                            (1,) + tuple(cur_slice.shape.as_list())
+                        ), 
+                        training=False
+                    ),
+                    tf.transpose(x, perm=(2,0,1,3)),
+                )
+
+                logits = tf.concat(
+                    [axial_logits, coronal_logits, sagittal_logits], 
+                    axis=0,
+                )
+                ''' 
+
                 losses = tf.nn.softmax_cross_entropy_with_logits(
                     labels=y,
                     logits=logits,
@@ -197,8 +248,25 @@ if __name__ == "__main__":
                     axis=0,
                 )
 
-                val_accuracy.update_state(y, pred)
-                val_loss.update_state(tf.reduce_sum(losses))
+                #val_accuracy.update_state(y, pred)
+
+
+
+
+
+                # The loss we keep track of is the mean
+                # since there are 3 views per volume.
+                # If we don't take the mean, the loss will look
+                # a couple orders of magnitude higher, though they
+                # are semantically the same.
+
+                # handle nans
+                mean_loss = tf.reduce_mean(losses)
+
+                if tf.reduce_any(tf.math.is_nan(mean_loss)) is not None:
+                    val_loss.update_state(mean_loss)
+                # don't update val_loss if mean_loss is nan.
+
 
 
             @tf.function
