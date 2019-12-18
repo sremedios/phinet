@@ -3,12 +3,14 @@ import os
 import sys
 import json
 
+from pathlib import Path
+
 import tensorflow as tf
-import tensorflow_probability as tfp
 from tqdm import tqdm
 
-from utils.augmentations import *
+#from utils.augmentations import *
 from utils.tfrecord_utils import *
+from utils.pad import *
 from models.phinet import *
 
 def running_average(old_average, cur_val, n):
@@ -26,22 +28,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == "__main__":
 
-    #opts = tf.compat.v1.GPUOptions(per_process_gpu_memory_fraction=0.98)
-    #conf = tf.compat.v1.ConfigProto(gpu_options=opts)
-    #tf.compat.v1.enable_eager_execution(config=conf)
-    #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-    #tf.compat.v1.enable_eager_execution()
-    ########## DISTRIBUTION STRATEGY ##########
-    strategy = tf.distribute.MirroredStrategy()
-
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE_PER_REPLICA = 4096 
-    GLOBAL_BATCH_SIZE = BATCH_SIZE_PER_REPLICA * strategy.num_replicas_in_sync
-    BUFFER_SIZE = GLOBAL_BATCH_SIZE * 2
-    ds = 2
+    BATCH_SIZE = 2**6
+    BUFFER_SIZE = BATCH_SIZE * 2
+    ds = 8
     instance_size = (256, 256)
     volume_size = (256, 256, 160)
     num_classes = 6
@@ -53,33 +45,26 @@ if __name__ == "__main__":
     ########## DIRECTORY SETUP ##########
 
     MODEL_NAME = "phinet"
-    WEIGHT_DIR = os.path.join(
-            "models", 
-            "weights", 
-            MODEL_NAME, 
-    )
-
-    RESULTS_DIR = os.path.join(
-            "results",
-    )            
+    WEIGHT_DIR = Path("models/weights") / MODEL_NAME
+    RESULTS_DIR = Path("results")
+    DATA_DIR = Path("Z:/data")
 
     # files and paths
     for d in [WEIGHT_DIR, RESULTS_DIR]:
-        if not os.path.exists(d):
-            os.makedirs(d)
+        if not d.exists():
+            d.mkdir(parents=Path('.'))
 
-    MODEL_PATH = os.path.join(WEIGHT_DIR, MODEL_NAME + ".json")
-    HISTORY_PATH = os.path.join(WEIGHT_DIR, MODEL_NAME + "_history.json")
+    MODEL_PATH = WEIGHT_DIR / (MODEL_NAME + ".json")
+    HISTORY_PATH = WEIGHT_DIR / (MODEL_NAME + "_history.json")
 
-    with strategy.scope():
-        # Actual instantiation happens for each fold
-        model = phinet(num_classes=num_classes, ds=ds)
-        #model = resnet(num_classes=num_classes, ds=ds)
+    # Actual instantiation happens for each fold
+    model = phinet(num_classes=num_classes, ds=ds)
+    #model = resnet(num_classes=num_classes, ds=ds)
     
-    INIT_WEIGHT_PATH = os.path.join(WEIGHT_DIR, "init_weights.h5")
-    model.save_weights(INIT_WEIGHT_PATH)
+    INIT_WEIGHT_PATH = WEIGHT_DIR / "init_weights.h5"
+    model.save_weights(str(INIT_WEIGHT_PATH))
     json_string = model.to_json()
-    with open(MODEL_PATH, 'w') as f:
+    with open(str(MODEL_PATH), 'w') as f:
         json.dump(json_string, f)
 
     print(model.summary(line_length=75))
@@ -87,49 +72,41 @@ if __name__ == "__main__":
 
     ######### FIVE FOLD CROSS VALIDATION #########
 
-    TRAIN_CURVE_FILENAME = os.path.join(
-            RESULTS_DIR, "training_curve_fold_{}.csv"
-    )
+    TRAIN_CURVE_FILENAME = RESULTS_DIR / "training_curve_fold_{}.csv"
 
-    TRAIN_TF_RECORD_FILENAME = os.path.join(
-            "data", "tfrecord_dir", "dataset_fold_{}_train.tfrecord"
-    )
-    VAL_TF_RECORD_FILENAME = os.path.join(
-            "data", "tfrecord_dir", "dataset_fold_{}_val.tfrecord"
-    )
-
+    TRAIN_TF_RECORD_FILENAME = DATA_DIR / "tfrecord_dir" / "dataset_fold_{}_train.tfrecord"
+    VAL_TF_RECORD_FILENAME = DATA_DIR / "tfrecord_dir" / "dataset_fold_{}_val.tfrecord"
+    
     for cur_fold in range(5):
 
-        with open(TRAIN_CURVE_FILENAME.format(cur_fold), 'w') as f:
+        with open(str(TRAIN_CURVE_FILENAME).format(cur_fold), 'w') as f:
             f.write("epoch,train_loss,train_acc,val_loss,val_acc\n")
 
         ######### MODEL AND CALLBACKS #########
-        with strategy.scope():
-            model.load_weights(INIT_WEIGHT_PATH)
-            opt = tf.optimizers.Adam(learning_rate=learning_rate)
+        model.load_weights(str(INIT_WEIGHT_PATH))
+        opt = tf.optimizers.Adam(learning_rate=learning_rate)
 
         ######### DATA IMPORT #########
-        augmentations = [flip_dim1, flip_dim2, rotate_2D]
 
         train_dataset = tf.data.TFRecordDataset(
-                TRAIN_TF_RECORD_FILENAME.format(cur_fold))\
+                str(TRAIN_TF_RECORD_FILENAME).format(cur_fold))\
             .map(lambda record: parse_into_slice(
                 record,
                 instance_size,
                 num_labels=num_classes))\
             .shuffle(BUFFER_SIZE)\
-            .batch(BATCH_SIZE_PER_REPLICA)\
-            .take(8)\
+            .batch(BATCH_SIZE)
 
         val_dataset = tf.data.TFRecordDataset(
-                VAL_TF_RECORD_FILENAME.format(cur_fold))\
+                str(VAL_TF_RECORD_FILENAME).format(cur_fold))\
             .map(lambda record: parse_into_volume(
                 record,
                 instance_size,
-                num_labels=num_classes))\
-            .take(16)\
+                num_labels=num_classes))
 
+            
         '''
+        augmentations = [flip_dim1, flip_dim2, rotate_2D]
         for f in augmentations:
             train_dataset = train_dataset.map(
                     lambda x, y: 
@@ -139,155 +116,55 @@ if __name__ == "__main__":
                     ), num_parallel_calls=4,)
         '''
 
-        num_elements = 1920 * 256 * 3 #1920 volumes * all slices per volume
+        num_elements = 1920 * (256 + 256 + 160) #1920 volumes * all slices per volume
 
-        ######### DISTRIBUTE SETUP #########
+        # metrics
+        train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_acc')
+        val_accuracy = tf.keras.metrics.Accuracy(name='val_acc')
+        val_loss = tf.keras.metrics.Mean(name='val_loss')
 
-        train_dist_dataset = strategy.experimental_distribute_dataset(
-                train_dataset
-        )
-        val_dist_dataset = strategy.experimental_distribute_dataset(
-                val_dataset
-        )
-
-        with strategy.scope():
-            # metrics
-            train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_acc')
-            val_accuracy = tf.keras.metrics.CategoricalAccuracy(name='val_acc')
-            val_loss = tf.keras.metrics.Mean(name='val_loss')
-
-            # step
-            def train_step(inputs):
-                x, y = inputs
-                
-                with tf.GradientTape() as tape:
-                    logits = model(x, training=True)
-                    loss = tf.nn.compute_average_loss(
-                        tf.nn.softmax_cross_entropy_with_logits(
-                            labels=y,
-                            logits=logits,
-                            #reduction=tf.losses.Reduction.NONE,
-                        ),
-                        global_batch_size=GLOBAL_BATCH_SIZE,
-                    )
-
-                grads = tape.gradient(loss, model.trainable_variables)
-                opt.apply_gradients(zip(grads, model.trainable_variables))
-
-                train_accuracy.update_state(y, tf.nn.softmax(logits))
-                return loss
-
-            def val_step(inputs):
-                x, y = inputs
-
-                logits = tf.map_fn(
-                    lambda cur_slice: model(
-                        tf.reshape(
-                            cur_slice, 
-                            (1,) + tuple(cur_slice.shape.as_list())
-                        ), 
-                        training=False
+        # step
+        def train_step(inputs):
+            x, y = inputs
+            
+            with tf.GradientTape() as tape:
+                logits = model(x, training=True)
+                loss = tf.nn.compute_average_loss(
+                    tf.nn.softmax_cross_entropy_with_logits(
+                        labels=y,
+                        logits=logits,
                     ),
-                    x,
+                    global_batch_size=BATCH_SIZE,
                 )
 
+            grads = tape.gradient(loss, model.trainable_variables)
+            opt.apply_gradients(zip(grads, model.trainable_variables))
 
-                ''' 
-                # The val TFRecord already wrote all slice orientations
-                # as 2D slices. This commented-out code is redundant and
-                # will actually error-out.
-                # It will be useful later in the test.py code though.
-                # IE: This will work if the data is saved as a volume
-                # but will break if operating over slices
-                axial_logits = tf.map_fn(
-                    lambda cur_slice: model(
-                        tf.reshape(
-                            cur_slice, 
-                            (1,) + tuple(cur_slice.shape.as_list())
-                        ), 
-                        training=False
-                    ),
-                    x,
-                )
-                coronal_logits = tf.map_fn(
-                    lambda cur_slice: model(
-                        tf.reshape(
-                            cur_slice, 
-                            (1,) + tuple(cur_slice.shape.as_list())
-                        ), 
-                        training=False
-                    ),
-                    tf.transpose(x, perm=(1,2,0,3)),
-                )
-                sagittal_logits = tf.map_fn(
-                    lambda cur_slice: model(
-                        tf.reshape(
-                            cur_slice, 
-                            (1,) + tuple(cur_slice.shape.as_list())
-                        ), 
-                        training=False
-                    ),
-                    tf.transpose(x, perm=(2,0,1,3)),
-                )
+            train_accuracy.update_state(y, tf.nn.softmax(logits))
+            return loss
 
-                logits = tf.concat(
-                    [axial_logits, coronal_logits, sagittal_logits], 
-                    axis=0,
-                )
-                ''' 
+        def val_step(inputs):
+            x, y = inputs
 
-                losses = tf.nn.softmax_cross_entropy_with_logits(
-                    labels=y,
-                    logits=logits,
-                )
+            logits = model(x, training=False)
 
-                # Aggregation of scores
-                # For now, just take maximum class
-                pred = tf.reduce_sum(
-                    tf.nn.softmax(logits),
-                    axis=0,
-                )
+            losses = tf.nn.softmax_cross_entropy_with_logits(
+                labels=y,
+                logits=logits,
+            )
 
-                #val_accuracy.update_state(y, pred)
+            mean_loss = tf.reduce_mean(losses)
+            val_loss.update_state(mean_loss)
+
+            # arithmetic mean of prediction of all slices
+            pred = tf.reduce_mean(
+                tf.nn.softmax(logits),
+                axis=0,
+            )
+            # update val acc by taking highest class: argmax
+            val_accuracy.update_state(tf.argmax(y), tf.argmax(pred))
 
 
-
-
-
-                # The loss we keep track of is the mean
-                # since there are 3 views per volume.
-                # If we don't take the mean, the loss will look
-                # a couple orders of magnitude higher, though they
-                # are semantically the same.
-
-                # handle nans
-                mean_loss = tf.reduce_mean(losses)
-
-                if tf.reduce_any(tf.math.is_nan(mean_loss)) is not None:
-                    val_loss.update_state(mean_loss)
-                # don't update val_loss if mean_loss is nan.
-
-
-
-            @tf.function
-            def distributed_train_step(dataset_inputs):
-                per_replica_losses = strategy.experimental_run_v2(
-                        train_step,
-                        args=(dataset_inputs,)
-                )
-                return strategy.reduce(
-                        tf.distribute.ReduceOp.SUM,
-                        per_replica_losses,
-                        axis=None,
-                )
-
-            @tf.function
-            def distributed_val_step(dataset_inputs):
-                return strategy.experimental_run_v2(
-                        val_step,
-                        args=(dataset_inputs,)
-                )
-    
         ######### TRAINING #########
 
         train_loss = 0
@@ -311,76 +188,89 @@ if __name__ == "__main__":
         ))
 
         best_epoch = 1
-        with strategy.scope():
-            for cur_epoch in range(N_EPOCHS):
+        for cur_epoch in range(N_EPOCHS):
 
-                num_batches = 0
-                for i, data in enumerate(train_dist_dataset):
-                    train_loss += distributed_train_step(data)
-                    num_batches += 1
+            num_batches = 0
+            print("\nTraining...")
+            for i, data in enumerate(train_dataset):
+                train_loss += train_step(data)
+                num_batches += 1
 
-                    cur_step = BATCH_SIZE_PER_REPLICA * (i + 1)
+                cur_step = BATCH_SIZE * (i + 1)
 
-                    sys.stdout.write(TEMPLATE.format(
-                        cur_epoch + 1, N_EPOCHS,
-                        "=" * min(int(progbar_length*(cur_step/num_elements)), 
-                                  progbar_length),
-                        "-",
-                        progbar_length,
-                        train_loss/num_batches,
-                        train_accuracy.result(),
-                    ))
-                    sys.stdout.flush()
+                sys.stdout.write(TEMPLATE.format(
+                    cur_epoch + 1, N_EPOCHS,
+                    "=" * min(int(progbar_length*(cur_step/num_elements)), 
+                              progbar_length),
+                    "-",
+                    progbar_length,
+                    train_loss/num_batches,
+                    train_accuracy.result(),
+                ))
+                sys.stdout.flush()
 
-                train_loss /= num_batches
+            train_loss /= num_batches
 
-                # validation metrics
-                num_val_elements = 0
-                for i, data in enumerate(val_dataset):
-                    distributed_val_step(data)
+            # validation metrics
+            print("\nValidating...")
+            num_val_elements = 1920 * 0.2 #(80/20 split of dev set)
+            for i, (x, y) in enumerate(val_dataset):
+                # avoid failures in TFRecord where no slices were gathered
+                if x.shape[0] == 0:
+                    continue
 
-                with open(TRAIN_CURVE_FILENAME.format(cur_fold), 'a') as f:
-                    f.write("{},{:.4f},{:.4f},{:.4f},{:.4f}\n".format(
-                        cur_epoch + 1,
-                        train_loss,
-                        train_accuracy.result(),
-                        val_loss.result(),
-                        val_accuracy.result(),
-                    ))
+                val_step((x, y))
 
+                cur_step = (i + 1)
 
-                if convergence_epoch_counter >= CONVERGENCE_EPOCH_LIMIT:
-                    print("\nCurrent Fold: {}\
-                            \nNo improvement in {} epochs, model is converged.\
-                            \nModel achieved best val loss at epoch {}.\
-                            \nTrain Loss: {:.4f} Train Acc: {:.2%}\
-                            \nVal   Loss: {:.4f} Val   Acc: {:.2%}".format(
-                        cur_fold,
-                        CONVERGENCE_EPOCH_LIMIT,
-                        best_epoch,
-                        train_loss, 
-                        train_accuracy.result(),
-                        val_loss.result(), 
-                        val_accuracy.result(),
-                    ))
-                    break
-
-                if val_loss.result() > best_val_loss and\
-                        np.abs(val_loss.result() - best_val_loss) > epsilon:
-                    convergence_epoch_counter += 1
-                else:
-                    convergence_epoch_counter = 0
-
-                if val_loss.result() < best_val_loss:
-                    best_epoch = cur_epoch + 1
-                    best_val_loss = val_loss.result() 
-                    best_val_acc = val_accuracy.result()
-                    model.save_weights(os.path.join(
-                        WEIGHT_DIR, "best_weights_fold_{}.h5".format(cur_fold))
-                    )
-
-                sys.stdout.write(" Val Loss: {:.4f} Val Acc: {:.2%}".format(
+                sys.stdout.write(TEMPLATE.format(
+                    cur_epoch + 1, N_EPOCHS,
+                    "=" * min(int(progbar_length*(cur_step/num_val_elements)), 
+                              progbar_length),
+                    "-",
+                    progbar_length,
                     val_loss.result(),
-                    val_accuracy.result(), 
+                    val_accuracy.result(),
+                ))
+                sys.stdout.flush()
+            
+
+            with open(str(TRAIN_CURVE_FILENAME).format(cur_fold), 'a') as f:
+                f.write("{},{:.4f},{:.4f},{:.4f},{:.4f}\n".format(
+                    cur_epoch + 1,
+                    train_loss,
+                    train_accuracy.result(),
+                    val_loss.result(),
+                    val_accuracy.result(),
                 ))
 
+
+            if convergence_epoch_counter >= CONVERGENCE_EPOCH_LIMIT:
+                print("\nCurrent Fold: {}\
+                        \nNo improvement in {} epochs, model is converged.\
+                        \nModel achieved best val loss at epoch {}.\
+                        \nTrain Loss: {:.4f} Train Acc: {:.2%}\
+                        \nVal   Loss: {:.4f} Val   Acc: {:.2%}".format(
+                    cur_fold,
+                    CONVERGENCE_EPOCH_LIMIT,
+                    best_epoch,
+                    train_loss, 
+                    train_accuracy.result(),
+                    val_loss.result(), 
+                    val_accuracy.result(),
+                ))
+                break
+
+            if val_loss.result() > best_val_loss and\
+                    np.abs(val_loss.result() - best_val_loss) > epsilon:
+                convergence_epoch_counter += 1
+            else:
+                convergence_epoch_counter = 0
+
+            if val_loss.result() < best_val_loss:
+                best_epoch = cur_epoch + 1
+                best_val_loss = val_loss.result() 
+                best_val_acc = val_accuracy.result()
+                model.save_weights(
+                    str(WEIGHT_DIR / "best_weights_fold_{}.h5".format(cur_fold))
+                )
