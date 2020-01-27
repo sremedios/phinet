@@ -28,26 +28,34 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == "__main__":
 
+    ########## CONTINUE TRAINING? ##########
+    if len(sys.argv) == 2:
+        prev_weights = sys.argv[1]
+    else:
+        prev_weights = None
+
+
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 2**6
+    BATCH_SIZE = 2**8
     BUFFER_SIZE = BATCH_SIZE * 2
-    ds = 8
+    ds = 4
     instance_size = (256, 256)
     volume_size = (256, 256, 160)
     num_classes = 6
     learning_rate = 1e-4
     progbar_length = 10
     CONVERGENCE_EPOCH_LIMIT = 10
-    epsilon = 1e-4
+    TERMINATING_EPOCH = 50 # stop training at 50 epochs
+    epsilon = 1e-3
 
     ########## DIRECTORY SETUP ##########
 
     MODEL_NAME = "phinet"
     WEIGHT_DIR = Path("models/weights") / MODEL_NAME
     RESULTS_DIR = Path("results")
-    DATA_DIR = Path("Z:/data")
+    DATA_DIR = Path("data")
 
     # files and paths
     for d in [WEIGHT_DIR, RESULTS_DIR]:
@@ -83,7 +91,10 @@ if __name__ == "__main__":
             f.write("epoch,train_loss,train_acc,val_loss,val_acc\n")
 
         ######### MODEL AND CALLBACKS #########
-        model.load_weights(str(INIT_WEIGHT_PATH))
+        if prev_weights and cur_fold == 0:
+            model.load_weights(sys.argv[1])
+        else:
+            model.load_weights(str(INIT_WEIGHT_PATH))
         opt = tf.optimizers.Adam(learning_rate=learning_rate)
 
         ######### DATA IMPORT #########
@@ -245,14 +256,16 @@ if __name__ == "__main__":
                 ))
 
 
-            if convergence_epoch_counter >= CONVERGENCE_EPOCH_LIMIT:
+            #if convergence_epoch_counter >= CONVERGENCE_EPOCH_LIMIT:
+            # Stop training at TERMINATING_EPOCH
+            if cur_epoch >= TERMINATING_EPOCH:
                 print("\nCurrent Fold: {}\
-                        \nNo improvement in {} epochs, model is converged.\
+                        \n{} epochs have occured, model is converged.\
                         \nModel achieved best val loss at epoch {}.\
                         \nTrain Loss: {:.4f} Train Acc: {:.2%}\
                         \nVal   Loss: {:.4f} Val   Acc: {:.2%}".format(
                     cur_fold,
-                    CONVERGENCE_EPOCH_LIMIT,
+                    cur_epoch,
                     best_epoch,
                     train_loss, 
                     train_accuracy.result(),
