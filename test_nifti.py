@@ -13,7 +13,6 @@ import json
 import nibabel as nib
 
 import tensorflow as tf
-import tensorflow_probability as tfp
 from tqdm import tqdm
 
 from utils.pad import *
@@ -51,6 +50,9 @@ if __name__ == "__main__":
     FILENAMES_FILE = sys.argv[1]
     with open(FILENAMES_FILE, 'r') as f:
         filenames_labels = [l.strip().split(',') for l in f.readlines()]
+
+    GPUID = sys.argv[2]
+    os.environ['CUDA_VISIBLE_DEVICES'] = GPUID
 
 
     MODEL_NAME = "phinet"
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         )[0]
 
 
-        test_accuracy.update_state(y, pred)
+        test_accuracy.update_state(tf.argmax(y), tf.argmax(pred))
         test_loss.update_state(tf.reduce_sum(losses))
 
         return pred
@@ -181,7 +183,7 @@ if __name__ == "__main__":
         ))
 
         # get input file and target label
-        for i, (filename, label) in enumerate(filenames_labels):
+        for i, (filename, label) in tqdm(enumerate(filenames_labels), total=len(filenames_labels)):
             x, y = prepare_data(filename, int(label), num_classes, instance_size)
 
             pred = test_step((x, y))
