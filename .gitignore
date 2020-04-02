@@ -7,3 +7,5 @@ sorting_example/*
 validation_results/*
 class_encodings.txt
 **/*.txt
+**/*.png
+**/*.nii.gz
