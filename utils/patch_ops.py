@@ -200,6 +200,13 @@ def get_patches(invols, mask, patchsize, maxpatch, num_channels):
 
     return CTPatches, MaskPatches
 
+def get_axial_slices(img_vol, target_size):
+    unpadded_slices = np.moveaxis(img_vol, 2, 0)
+    return np.array(
+            [pad_crop_image_2D(sl, target_size) for sl in unpadded_slices],
+            dtype=np.float32,
+        )[..., np.newaxis]
+
 def get_slices(img_vol, target_size):
     slices = []
     

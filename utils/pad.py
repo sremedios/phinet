@@ -51,12 +51,19 @@ def pad_image(img_data, target_dims=None):
 
     return new_img
 
+
+
 def center_crop(img, target_dims):
     width = img.shape[1]
     height = img.shape[0]
 
     new_width = target_dims[1]
     new_height = target_dims[0]
+
+    if new_width > width:
+        new_width = width
+    if new_height > height:
+        new_height = height
 
     left = int(np.ceil((width - new_width) / 2))
     right = width - int(np.floor((width - new_width) / 2))

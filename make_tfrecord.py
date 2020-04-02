@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     tf.enable_eager_execution()
 
-    ######### DIRECTRY SETUP #########
+    ######### DIRECTORY SETUP #########
 
     # pass the preprocessed data directory here
     DATA_DIR = Path(sys.argv[1])
@@ -109,7 +109,6 @@ if __name__ == "__main__":
     def prepare_data(x_filename, y_label, num_classes):
         x = nib.load(str(x_filename)).get_fdata()
         x_slices = get_slices(x, TARGET_DIMS)
-        x_slices = x_slices.astype(np.uint8)
 
         y = np.zeros((num_classes,), dtype=np.uint8)
         y[y_label] = 1
@@ -205,6 +204,15 @@ if __name__ == "__main__":
 
 
 
+    '''
+    # Testing images are NOT written
+
+    # Testing occurs directly on the raw nifti volumes
+    # to validate the preprocessing steps
+
+
+
+
     # Testing images are written as full volumes!
     with TFRecordWriter(TF_RECORD_FILENAME.format("_", "test")) as writer:
         for x_name, y_label in tqdm(zip(X_names_test, y_test), total=len(X_names_test)):
@@ -218,3 +226,4 @@ if __name__ == "__main__":
 
             tf_example = volume_image_example(x_slices, y_label, len(x_slices))
             writer.write(tf_example.SerializeToString())
+    '''
