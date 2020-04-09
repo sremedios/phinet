@@ -121,7 +121,7 @@ def phinet(num_classes, ds):
 
     # global avg pooling before FC
     x = GlobalMaxPooling2D()(x)
-    outputs = Dense(num_classes)(x)
+    outputs = Dense(num_classes, dtype='float32')(x)
     
     model = Model(inputs=inputs, outputs=outputs)
 

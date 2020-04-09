@@ -54,10 +54,16 @@ def generate_gradcam(axial_slices, model, target_class_idx):
         logits = logits[:, target_class_idx]
 
     grads = tape.gradient(logits, target_feature_maps)
+    if grads is None:
+        print("None gradient returned")
+        return out_vol
+    pooled_grads = tf.reduce_mean(grads, axis=(1, 2))
+    '''
     try:
         pooled_grads = tf.reduce_mean(grads, axis=(1, 2))
     except ValueError:
         return out_vol
+    '''
 
     for slice_idx in range(len(axial_slices)):
         if axial_slices[slice_idx].sum() == 0:
