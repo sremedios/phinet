@@ -1,1 +1,0 @@
---result_dst results.csv --classes FL,FLC,PD,T1,T1C,T2 --patch_size 45x45x5 --num_patches 100 --delete_preprocessed_dir y

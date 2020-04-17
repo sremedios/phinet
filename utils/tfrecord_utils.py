@@ -46,13 +46,13 @@ def parse_into_slice(record, instance_size, num_labels):
 
     image_features = tf.io.parse_single_example(record, features=features)
 
-    x = tf.io.decode_raw(image_features.get('X'), tf.uint8)
+    x = tf.io.decode_raw(image_features.get('X'), tf.float32)
     x = tf.reshape(x, (*instance_size, 1))
-    x = tf.cast(x, tf.float32)
+    #x = tf.cast(x, tf.float32)
 
-    y = tf.io.decode_raw(image_features.get('Y'), tf.uint8)
+    y = tf.io.decode_raw(image_features.get('Y'), tf.float32)
     y = tf.reshape(y, (num_labels, ))
-    y = tf.cast(y, tf.float32)
+    #y = tf.cast(y, tf.float32)
 
     return x, y
 
@@ -67,12 +67,12 @@ def parse_into_volume(record, instance_size, num_labels):
     image_features = tf.io.parse_single_example(record, features=features)
 
 
-    x = tf.io.decode_raw(image_features.get('X'), tf.uint8)
+    x = tf.io.decode_raw(image_features.get('X'), tf.float32)
     x = tf.reshape(x, (image_features.get('num_instances'), *instance_size, 1))
-    x = tf.cast(x, tf.float32)
+    #x = tf.cast(x, tf.float32)
 
-    y = tf.io.decode_raw(image_features.get('Y'), tf.uint8)
+    y = tf.io.decode_raw(image_features.get('Y'), tf.float32)
     y = tf.reshape(y, (num_labels, ))
-    y = tf.cast(y, tf.float32)
+    #y = tf.cast(y, tf.float32)
 
     return x, y
