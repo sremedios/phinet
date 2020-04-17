@@ -1,106 +1,54 @@
-from time import strftime
-from urllib.request import urlopen
-
-from .skullstrip import skullstrip
-from .reorient import orient, reorient
-
-from multiprocessing.pool import ThreadPool
-
 import os
-import argparse
-import numpy as np
-import nibabel as nib
-from sklearn.utils import shuffle
-from skimage import measure
-from skimage import morphology
-from subprocess import Popen, PIPE
-from tqdm import tqdm
-import random
-import copy
-import csv
+import sys
 import shutil
+from pathlib import Path
 
+def preprocess(src, dst, fixed_fpath, ants_reg_path, denoise_path):
+    tmp_dir = Path("tmp_preprocessing")
+    if not tmp_dir.exists():
+        tmp_dir.mkdir(parents=True)
 
-def preprocess(filename, src_dir, dst_dir, tmp_dir, skullstrip_script_path, verbose=0,
-               remove_tmp_files=True):
-    '''
-    Preprocesses a single file.
-    Can be used in parallel
+    # orient to RAI
+    print("Orienting {} to RAI...".format(src.name))
+    reoriented_fpath = tmp_dir / ("oriented_" + src.name)
+    reorient_call = "3dresample -orient RAI -inset {} -prefix {} > /dev/null 2>&1"
+    os.system(reorient_call.format(src, reoriented_fpath))
 
-    1. skullstrip
-    2. reorient to RAI
+    # orient fixed image to RAI
+    print("Orienting {} to RAI...".format(fixed_fpath.name))
+    reoriented_fixed_fpath = tmp_dir / ("oriented_" + fixed_fpath.name)
+    os.system(reorient_call.format(fixed_fpath, reoriented_fixed_fpath))
 
-    Params: TODO
-    Returns: TODO, the directory location of the final processed image
+    # register to RAI fixed
+    print("Registering {} to {}...".format(reoriented_fpath.name, reoriented_fixed_fpath.name))
+    registered_fpath = tmp_dir / ("registered_" + src.name)
+    register_call = "{} {} {} {} {} > /dev/null 2>&1"
+    os.system(register_call.format(
+        ants_reg_path, 
+        reoriented_fixed_fpath, 
+        reoriented_fpath, 
+        "fastfortesting",
+        registered_fpath,
+    ))
 
-    '''
-    if os.path.isdir(os.path.join(src_dir, filename)):
-        return
+    # denoise
+    print("Denoising {} to {}...".format(registered_fpath.name, dst.name))
+    denoise_call = "python {} --input={} --output={} --pc={} --scale={} --n_repetitions={} > /dev/null 2>&1"
+    os.system(denoise_call.format(
+        denoise_path,
+        registered_fpath,
+        dst,
+        40,
+        1.2,
+        4,
+    ))
 
-    if os.path.exists(os.path.join(dst_dir, filename)):
-        return
+    shutil.rmtree(tmp_dir)
 
-    ########## Directory Setup ##########
-    SKULLSTRIP_DIR = os.path.join(tmp_dir, "skullstripped")
-    ORIENT_DIR = os.path.join(tmp_dir, "orient")
-
-    DIR_LIST = [SKULLSTRIP_DIR, ORIENT_DIR]
-
-    for d in DIR_LIST:
-        if not os.path.exists(d):
-            os.makedirs(d)
-
-
-    # apply preprocessing
-    if not "mask" in filename:
-        skullstrip(filename, src_dir, SKULLSTRIP_DIR, skullstrip_script_path, verbose)
-        orient(filename, SKULLSTRIP_DIR, ORIENT_DIR, verbose)
-    else:
-        orient(filename, src_dir, ORIENT_DIR, verbose)
-
-    # move to dst_dir
-    final_preprocess_dir = ORIENT_DIR 
-    shutil.copy(os.path.join(final_preprocess_dir, filename),
-                os.path.join(dst_dir, filename))
-
-    # delete intermediate files
-    if remove_tmp_files:
-        for d in DIR_LIST:
-            tmp_file = os.path.join(d, filename)
-            if os.path.exists(tmp_file):
-                os.remove(tmp_file)
-
-def preprocess_dir(train_dir, preprocess_dir, skullstrip_script_path):
-    '''
-    Preprocesses a directory in parallel using preprocess(...)
-
-    Params: TODO
-    '''
-
-    TMPDIR = os.path.join(preprocess_dir,
-                          "tmp_intermediate_preprocessing_steps")
-    if not os.path.exists(TMPDIR):
-        os.makedirs(TMPDIR)
-
-    print("*** PREPROCESSSING ***")
-
-    filenames = os.listdir(train_dir)
-
-    # process using free threads, server-friendly
-    tp = ThreadPool(30)
-    for f in tqdm(filenames):
-        tp.apply_async(preprocess(filename=f,
-                                  src_dir=train_dir,
-                                  dst_dir=preprocess_dir,
-                                  tmp_dir=TMPDIR,
-                                  verbose=0,
-                                  skullstrip_script_path=skullstrip_script_path,
-                                  remove_tmp_files=True))
-
-    tp.close()
-    tp.join()
-
-
-    # if the preprocessed data exists, delete its folder
-    if os.path.exists(TMPDIR):
-        shutil.rmtree(TMPDIR)
+if __name__ == '__main__':
+    src = Path(sys.argv[1])
+    dst = Path(sys.argv[2])
+    fixed_fpath = Path(sys.argv[3])
+    ants_reg_path = Path(sys.argv[4])
+    denoise_path = Path(sys.argv[5])
+    preprocess(src, dst, fixed_fpath, ants_reg_path, denoise_path)

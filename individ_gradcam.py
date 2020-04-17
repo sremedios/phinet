@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 import json
 import numpy as np
+from scipy.stats import mode
 import nibabel as nib
 import cv2
 import tensorflow as tf
@@ -27,7 +28,7 @@ def slice_gradcam(target_feature_map, pooled_grad, slice_shape):
     )
     gradcam = np.array(tf.nn.relu(gradcam))
     if gradcam.max() != 0:
-        gradcam = (gradcam - gradcam.min()) / (gradcam.max() - gradcam.min())
+        #gradcam = (gradcam - gradcam.min()) / (gradcam.max() - gradcam.min())
         gradcam = cv2.resize(
             gradcam, 
             (slice_shape[1], slice_shape[0]), #cv2 expects opposite from numpy 
@@ -48,7 +49,6 @@ def generate_gradcam(axial_slices, model, target_class_idx):
             dtype=np.float32,
         )
 
-
     with tf.GradientTape() as tape:
         target_feature_maps, logits = model(axial_slices, training=False)
         logits = logits[:, target_class_idx]
@@ -58,12 +58,6 @@ def generate_gradcam(axial_slices, model, target_class_idx):
         print("None gradient returned")
         return out_vol
     pooled_grads = tf.reduce_mean(grads, axis=(1, 2))
-    '''
-    try:
-        pooled_grads = tf.reduce_mean(grads, axis=(1, 2))
-    except ValueError:
-        return out_vol
-    '''
 
     for slice_idx in range(len(axial_slices)):
         if axial_slices[slice_idx].sum() == 0:
@@ -79,11 +73,9 @@ def generate_gradcam(axial_slices, model, target_class_idx):
 if __name__ == "__main__":
 
     WEIGHT_DIR = Path(sys.argv[1])
-    FNAMES_FILE = Path(sys.argv[2])
+    fname = Path(sys.argv[2])
     GPUID = sys.argv[3]
 
-    fnames = sorted(set([Path(s).resolve() for (s, _) in\
-            map(lambda l: l.strip().split(','), open(FNAMES_FILE, 'r'))]))
     os.environ['CUDA_VISIBLE_DEVICES'] = GPUID
 
     ########## DIRECTORY SETUP ##########
@@ -95,29 +87,31 @@ if __name__ == "__main__":
     RESULTS_DIR = Path("results") / MODEL_NAME
     DST_DIR = RESULTS_DIR / "figures" / "gradcams"
 
-    int_to_class = {i:c for i,c in enumerate(sorted(['FL','FLC','PD','T1','T1C','T2']))}
+    classes = sorted(['FL','FLC','PD','T1','T1C','T2'])
+    int_to_class = {i:c for i,c in enumerate(classes)}
     class_to_int = {v:k for k,v in int_to_class.items()}
 
     ######### INFERENCE #########
 
-    for fname in tqdm(fnames):
-        cur_class = Path(fname.parent).name
-        class_dir = DST_DIR / cur_class
-        if not class_dir.exists():
-            class_dir.mkdir(parents=True)
+    true_class = Path(fname.parent).name
+    individual_dir = DST_DIR / true_class / (fname.name.split('.')[0])
+    if not individual_dir.exists():
+        individual_dir.mkdir(parents=True)
 
-        dst_fname = class_dir / "gradcam_{}.nii.gz".format(
+    for cur_class in classes:
+
+        dst_fname = individual_dir / "gradcam_target_{}_{}.nii.gz".format(
+                cur_class,
                 fname.name.split('.')[0],
             )
 
-        if dst_fname.exists():
-            continue
 
         obj = nib.load(fname)
         slice_shape = (obj.shape[0], obj.shape[2])
         axial_slices = np.moveaxis(obj.get_fdata(dtype=np.float32), 2, 0)[..., np.newaxis]
         gradcam_vol = np.zeros(nib.load(fname).shape, dtype=np.float32)
 
+        fold_preds = []
         for cur_fold in range(5):
             ### LOAD MODEL ###
             with open(MODEL_PATH) as json_data:
@@ -127,6 +121,12 @@ if __name__ == "__main__":
                 model.inputs,
                 [model.get_layer(LAYER_NAME).output, model.output],
             )
+
+            _, logits = model(axial_slices, training=False)
+            preds = tf.nn.softmax(logits)
+            pred = tf.reduce_mean(preds, axis=0)
+            fold_preds.append(tf.argmax(pred).numpy())
+
 
             ### GEN GRADCAM ###
             gradcam_vol = running_average(
@@ -138,3 +138,7 @@ if __name__ == "__main__":
         gradcam_nii_obj = nib.Nifti1Image(gradcam_vol, obj.affine, header=obj.header)
 
         nib.save(gradcam_nii_obj, dst_fname)
+
+    print("Pred class: {}".format(
+        int_to_class[int(mode(fold_preds)[0])]
+    ))
