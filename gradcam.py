@@ -78,34 +78,41 @@ def generate_gradcam(axial_slices, model, target_class_idx):
 
 if __name__ == "__main__":
 
-    ########## HYPERPARAMETER SETUP ##########
+    WEIGHT_DIR = Path(sys.argv[1])
+    FNAMES_FILE = Path(sys.argv[2])
+    GPUID = sys.argv[3]
 
-    MODEL_NAME = "phinet"
-    WEIGHT_DIR = Path("models/weights") / MODEL_NAME
-    TRAINED_WEIGHTS_FILENAME = WEIGHT_DIR / "best_weights_fold_{}.h5"
-    LAYER_NAME = "concatenate"
-    MODEL_PATH = WEIGHT_DIR / (MODEL_NAME + ".json")
-    RESULTS_DIR = Path("results")
-    DST_DIR = RESULTS_DIR / "figures" / "gradcams" / "nifti"
-
-    int_to_class = {i:c for i,c in enumerate(sorted(['FL','FLC','PD','T1','T1C','T2']))}
-    class_to_int = {v:k for k,v in int_to_class.items()}
+    fnames = sorted(set([Path(s).resolve() for (s, _) in\
+            map(lambda l: l.strip().split(','), open(FNAMES_FILE, 'r'))]))
+    os.environ['CUDA_VISIBLE_DEVICES'] = GPUID
 
     ########## DIRECTORY SETUP ##########
 
-    if len(sys.argv) < 2:
-        print("Error: missing fname argument")
-        sys.exit()
-    FNAMES_DIR = Path(sys.argv[1])
-    fnames = sorted(FNAMES_DIR.iterdir())
+    MODEL_NAME = WEIGHT_DIR.name
+    TRAINED_WEIGHTS_FILENAME = WEIGHT_DIR / "best_weights_fold_{}.h5"
+    LAYER_NAME = "concatenate"
+    MODEL_PATH = WEIGHT_DIR / (MODEL_NAME + ".json")
+    RESULTS_DIR = Path("results") / MODEL_NAME
+    DST_DIR = RESULTS_DIR / "figures" / "gradcams"
 
-    GPUID = sys.argv[2]
-    os.environ['CUDA_VISIBLE_DEVICES'] = GPUID
+    int_to_class = {i:c for i,c in enumerate(sorted(['FL','FLC','PD','T1','T1C','T2']))}
+    class_to_int = {v:k for k,v in int_to_class.items()}
 
     ######### INFERENCE #########
 
     for fname in tqdm(fnames):
         cur_class = Path(fname.parent).name
+        class_dir = DST_DIR / cur_class
+        if not class_dir.exists():
+            class_dir.mkdir(parents=True)
+
+        dst_fname = class_dir / "gradcam_{}.nii.gz".format(
+                fname.name.split('.')[0],
+            )
+
+        if dst_fname.exists():
+            continue
+
         obj = nib.load(fname)
         slice_shape = (obj.shape[0], obj.shape[2])
         axial_slices = np.moveaxis(obj.get_fdata(dtype=np.float32), 2, 0)[..., np.newaxis]
@@ -128,13 +135,6 @@ if __name__ == "__main__":
                     cur_fold + 1,
                 )
 
-        class_dir = DST_DIR / cur_class
-        if not class_dir.exists():
-            class_dir.mkdir(parents=True)
-
-        dst_fname = class_dir / "gradcam_{}.nii.gz".format(
-                fname.name.split('.')[0],
-            )
         gradcam_nii_obj = nib.Nifti1Image(gradcam_vol, obj.affine, header=obj.header)
 
         nib.save(gradcam_nii_obj, dst_fname)

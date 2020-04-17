@@ -1,5 +1,5 @@
 import os
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 import sys
 import json
@@ -11,7 +11,7 @@ import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from tqdm import tqdm
 
-#from utils.augmentations import *
+from utils.augmentations import *
 from utils.tfrecord_utils import *
 from utils.pad import *
 from utils.progbar import show_progbar
@@ -20,8 +20,6 @@ from models.phinet import *
 def running_average(old_average, cur_val, n):
     return old_average * (n-1)/n + cur_val/n
 
-os.environ['FSLOUTPUTTYPE'] = 'NIFTI_GZ'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == "__main__":
 
@@ -30,23 +28,23 @@ if __name__ == "__main__":
     mixed_precision.set_policy(policy)
     loss_scale = policy.loss_scale
 
-    cur_fold = int(sys.argv[1])
-    gpuid = sys.argv[2]
+    DATA_DIR = Path(sys.argv[1])
+    cur_fold = int(sys.argv[2])
+    gpuid = sys.argv[3]
     os.environ['CUDA_VISIBLE_DEVICES'] = gpuid
 
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 2**8
+    BATCH_SIZE = 2**10
     BUFFER_SIZE = BATCH_SIZE * 2
     ds = 4
-    instance_size = (256, 256)
-    volume_size = (256, 256, 160)
+    instance_size = (182, 218)
     num_classes = 6
     learning_rate = 1e-4
     progbar_length = 10
     CONVERGENCE_EPOCH_LIMIT = 10
-    TERMINATING_EPOCH = 50 # stop training at 50 epochs
+    TERMINATING_EPOCH = 500 # stop training at 50 epochs
     epsilon = 1e-3
 
     TRAIN_COLOR_CODE = "\033[0;32m"
@@ -54,10 +52,9 @@ if __name__ == "__main__":
 
     ########## DIRECTORY SETUP ##########
 
-    MODEL_NAME = "phinet_denoised"
+    MODEL_NAME = "phinet_denoised_{}".format(DATA_DIR.name)
     WEIGHT_DIR = Path("models/weights") / MODEL_NAME
-    RESULTS_DIR = Path("results")
-    DATA_DIR = Path("data")
+    RESULTS_DIR = Path("results") / MODEL_NAME
 
     # files and paths
     for d in [WEIGHT_DIR, RESULTS_DIR]:
@@ -84,8 +81,8 @@ if __name__ == "__main__":
 
     TRAIN_CURVE_FILENAME = RESULTS_DIR / "training_curve_fold_{}.csv"
 
-    TRAIN_TF_RECORD_FILENAME = DATA_DIR / "tfrecord_dir" / "dataset_fold_{}_train.tfrecord"
-    VAL_TF_RECORD_FILENAME = DATA_DIR / "tfrecord_dir" / "dataset_fold_{}_val.tfrecord"
+    TRAIN_TF_RECORD_FILENAME = DATA_DIR / "dataset_fold_{}_train.tfrecord"
+    VAL_TF_RECORD_FILENAME = DATA_DIR / "dataset_fold_{}_val.tfrecord"
     data_count_fname = DATA_DIR / "data_count.txt"
 
     data_count = {"{}_{}".format(t, fold): int(n) for t, fold, n in map(lambda l: l.strip().split(','), open(data_count_fname, 'r').readlines())}
@@ -106,30 +103,22 @@ if __name__ == "__main__":
 
     parse_slice = lambda record: parse_into_slice(record, instance_size, num_classes)
     parse_volume = lambda record: parse_into_volume(record, instance_size, num_classes)
-    
+    random_flip = lambda x, y: tf.cond(tf.random.uniform([], 0, 1) > 0.5, 
+                        lambda: (flip_dim1(x), y),
+                        lambda: (x, y)
+                    )
+ 
 
     train_dataset = tf.data.TFRecordDataset(
             str(TRAIN_TF_RECORD_FILENAME).format(cur_fold))\
         .map(parse_slice)\
+        .map(random_flip)\
         .shuffle(BUFFER_SIZE)\
         .batch(BATCH_SIZE)
 
     val_dataset = tf.data.TFRecordDataset(
             str(VAL_TF_RECORD_FILENAME).format(cur_fold))\
         .map(parse_volume)
-
-        
-    '''
-    augmentations = [flip_dim1, flip_dim2, rotate_2D]
-    for f in augmentations:
-        train_dataset = train_dataset.map(
-                lambda x, y: 
-                tf.cond(tf.random.uniform([], 0, 1) > 0.9, 
-                    lambda: (f(x), y),
-                    lambda: (x, y)
-                ), num_parallel_calls=4,)
-    '''
-
 
     # metrics
     train_loss = tf.keras.metrics.Mean(name='train_loss')
